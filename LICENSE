@@ -1,3 +1,46 @@
+================================================================================
+FLOWGRAB PUBLIC LICENSE & PERMISSION NOTICE
+================================================================================
+
+Copyright (c) 2026 HrshD1eux (FlowGrab Project)
+Copyright (c) JunkFood02 (Seal Project Upstream)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, merge, publish, and distribute copies of the Software for
+personal, non-commercial, and educational purposes, subject to the following
+mandatory conditions:
+
+1. PROPER ATTRIBUTION & CREDITS:
+   Any redistribution, public display, deployment, or fork of the Software
+   (or substantial portions thereof) must retain all existing copyright
+   notices, this permission notice, and clear, prominent attribution giving
+   full credit to:
+   - FlowGrab (https://github.com/HrshD1eux/flowgrab-android)
+   - Upstream project Seal by JunkFood02 (https://github.com/JunkFood02/Seal)
+
+2. STRICT NON-COMMERCIAL / NO-SALE RESTRICTION:
+   The Software, its source code, compiled binaries, modified versions, or
+   derivative works may NOT be sold, rented, leased, licensed, monetized, or
+   used for any commercial purposes whatsoever. You may not charge users for
+   downloads, bundle with commercial or paid software, lock features behind
+   paywalls, subscriptions, or donations, or inject third-party commercial
+   advertising networks, tracking SDKs, or paid wrappers.
+
+3. OPEN SOURCE & COPYLEFT COMPLIANCE:
+   The core program is licensed under the GNU General Public License Version 3.0
+   (GPLv3). In accordance with GPLv3, complete source code of modified works
+   must remain freely available under the GPLv3 terms.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 

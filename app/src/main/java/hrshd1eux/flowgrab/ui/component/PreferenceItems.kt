@@ -52,6 +52,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -68,10 +69,10 @@ private const val horizontal = 8
 private const val vertical = 12
 
 private val PreferenceTitleVariant: TextStyle
-    @Composable get() = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp)
+    @Composable get() = MaterialTheme.typography.titleMedium.copy(fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold)
 
 private val PreferenceTitle
-    @Composable get() = MaterialTheme.typography.titleMedium
+    @Composable get() = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -279,7 +280,7 @@ internal fun PreferenceItemDescription(
     modifier: Modifier = Modifier,
     text: String,
     maxLines: Int = Int.MAX_VALUE,
-    style: TextStyle = MaterialTheme.typography.bodyMedium,
+    style: TextStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp),
     enabled: Boolean,
     color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     overflow: TextOverflow = TextOverflow.Ellipsis,

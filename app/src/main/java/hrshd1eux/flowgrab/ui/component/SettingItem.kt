@@ -16,15 +16,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun SettingTitle(text: String) {
     Text(
-        modifier = Modifier.padding(top = 32.dp).padding(horizontal = 20.dp, vertical = 16.dp),
+        modifier = Modifier.padding(top = 24.dp).padding(horizontal = 20.dp, vertical = 12.dp),
         text = text,
-        style = MaterialTheme.typography.displaySmall,
+        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, fontSize = 20.sp),
     )
 }
 
@@ -32,24 +34,24 @@ fun SettingTitle(text: String) {
 fun SettingItem(title: String, description: String, icon: ImageVector?, onClick: () -> Unit) {
     Surface(modifier = Modifier.clickable { onClick() }) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             icon?.let {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    modifier = Modifier.padding(end = 16.dp).size(24.dp),
+                    modifier = Modifier.padding(end = 16.dp).size(22.dp),
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
             Column(
-                modifier = Modifier.weight(1f).padding(start = if (icon == null) 12.dp else 0.dp)
+                modifier = Modifier.weight(1f).padding(start = if (icon == null) 8.dp else 0.dp)
             ) {
                 Text(
                     text = title,
                     maxLines = 1,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurface,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -58,7 +60,7 @@ fun SettingItem(title: String, description: String, icon: ImageVector?, onClick:
                     text = description,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.5.sp),
                     overflow = TextOverflow.Ellipsis,
                 )
             }

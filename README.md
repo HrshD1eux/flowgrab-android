@@ -62,11 +62,21 @@ Download the build tailored to your device from [Releases](https://github.com/Hr
 
 ## 📄 Upstream & Credits
 
-- Upstream core powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [youtubedl-android](https://github.com/yausername/youtubedl-android).
-- Originally forked from [Seal](https://github.com/JunkFood02/Seal) by JunkFood02 (licensed under GPLv3).
-- 
+FlowGrab stands on the shoulders of giants. We express our deepest gratitude and credit to the upstream open-source projects that made this application possible:
+
+* **[Seal](https://github.com/JunkFood02/Seal)**: FlowGrab originated as a modern fork and evolution of **Seal**, conceived and created by [JunkFood02](https://github.com/JunkFood02). We pay the utmost respect and credit to JunkFood02 and the contributors of Seal for pioneering the Material You interface and yt-dlp Android integration under GPLv3.
+* **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**: The industry-leading core media extractor powering video and audio scraping across 1,800+ websites.
+* **[youtubedl-android](https://github.com/yausername/youtubedl-android)**: Android wrapper porting yt-dlp, FFmpeg, and aria2c native binaries to Android NDK.
+* **[Read You](https://github.com/Ashinch/ReadYou)** & **[Music You](https://github.com/Kyant0/MusicYou)**: Material 3 UI design patterns and Monet palette inspirations.
+
 ---
 
-## 📜 License
+## 📜 License & Usage Terms
 
-Distributed under the terms of the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0).
+FlowGrab is distributed under the **GNU General Public License v3.0 (GPLv3)** with the following community terms:
+
+* ✅ **Do Whatever You Want (Personal & Educational):** You are completely free to study, fork, run, and modify the code.
+* 🏷️ **Proper Credits Required:** Any redistribution, public display, or fork **must give full, visible credit** to both [FlowGrab](https://github.com/HrshD1eux/flowgrab-android) and [Seal](https://github.com/JunkFood02/Seal).
+* 🚫 **Strictly Non-Commercial / No-Sale:** You **CANNOT sell the app**, distribute paid versions, gate features behind subscriptions or paywalls, or inject commercial ad networks. It is 100% free software for the community.
+
+See the full [LICENSE](LICENSE) file for legal details.
