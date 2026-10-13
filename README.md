@@ -60,37 +60,11 @@ Download the build tailored to your device from [Releases](https://github.com/Hr
 
 ---
 
-## 🛠️ Building & Signing
-
-FlowGrab builds using Gradle with Android Gradle Plugin 8.9+:
-
-`ash
-# Run unit tests
-./gradlew testGenericDebugUnitTest
-
-# Assemble debug APK
-./gradlew assembleGenericDebug
-
-# Assemble signed release APKs
-./gradlew assembleGenericRelease
-`
-
-Release signing is configured via keystore.properties in the project root:
-`properties
-keyAlias=flowgrab
-keyPassword=<your-key-password>
-storeFile=flowgrab-release.jks
-storePassword=<your-store-password>
-`
-
----
-
 ## 📄 Upstream & Credits
 
 - Upstream core powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [youtubedl-android](https://github.com/yausername/youtubedl-android).
 - Originally forked from [Seal](https://github.com/JunkFood02/Seal) by JunkFood02 (licensed under GPLv3).
-- UI inspiration and components from [Read You](https://github.com/Ashinch/ReadYou) and [Music You](https://github.com/Kyant0/MusicYou).
-
+- 
 ---
 
 ## 📜 License
