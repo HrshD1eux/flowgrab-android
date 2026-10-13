@@ -54,9 +54,9 @@
         "applicationSubCategory": "Video and Audio Downloader",
         "description": "FlowGrab is a free, privacy-focused open-source Android video and audio downloader powered by yt-dlp and Material Design 3. Supports 4K 60fps video, MP3 320kbps CBR, OPUS, FLAC, batch URLs, and YouTube SABR throttling bypass.",
         "url": "https://hrshd1eux.github.io/flowgrab-android/",
-        "downloadUrl": "https://github.com/HrshD1eux/flowgrab-android/releases/latest",
+        "downloadUrl": "https://github.com/HrshD1eux/flowgrab-android/releases/download/v2.0.0-alpha.12/FlowGrab-2.0.0-alpha.12-generic-universal-release.apk",
         "softwareVersion": "2.0.0",
-        "fileSize": "40MB",
+        "fileSize": "40.7MB",
         "offers": {
           "@type": "Offer",
           "price": "0.00",
@@ -382,7 +382,7 @@
       border: 1px solid var(--surface-border);
       border-radius: var(--radius-lg);
       padding: 36px;
-      max-width: 840px;
+      max-width: 860px;
       width: 100%;
       margin: 0 auto 60px;
       box-shadow: var(--shadow-lg);
@@ -406,7 +406,7 @@
 
     .device-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
       gap: 14px;
       margin-bottom: 24px;
     }
@@ -419,11 +419,15 @@
       cursor: pointer;
       transition: all 0.2s ease;
       position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
 
     .device-option:hover {
       background: #F1F5F9;
       transform: translateY(-2px);
+      box-shadow: var(--shadow-sm);
     }
 
     .device-option.active {
@@ -466,6 +470,31 @@
       font-size: 0.8rem;
       color: var(--text-muted);
       line-height: 1.4;
+      margin-bottom: 12px;
+    }
+
+    .device-download-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--primary);
+      background: rgba(37, 99, 235, 0.08);
+      padding: 6px 12px;
+      border-radius: var(--radius-full);
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .device-option.active .device-download-btn {
+      background: var(--primary);
+      color: #FFFFFF;
+    }
+
+    .device-option:hover .device-download-btn {
+      transform: scale(1.02);
     }
 
     /* Action Bar */
@@ -509,6 +538,8 @@
       border-radius: var(--radius-full);
       box-shadow: 0 4px 14px var(--primary-glow);
       transition: all 0.2s ease;
+      cursor: pointer;
+      border: none;
     }
 
     .primary-download-btn:hover {
@@ -877,9 +908,9 @@
       <!-- Device Architecture Selector & Direct APK Download Card -->
       <div id="download" class="download-card">
         <div class="download-card-title">
-          <span>📱</span> Select Your Device Architecture
+          <span>📱</span> Choose Your Device & Direct Download APK
         </div>
-        <p class="download-card-subtitle">Choose the APK matching your Android device processor for smallest file size and fastest performance:</p>
+        <p class="download-card-subtitle">Tap any device processor below to instantly download the APK file directly to your device:</p>
 
         <div class="device-grid">
           <!-- Universal -->
@@ -890,6 +921,7 @@
             </div>
             <div class="device-name">Universal</div>
             <div class="device-desc">Runs on all devices. Best choice if you do not know your phone's processor.</div>
+            <div class="device-download-btn">⬇️ Download APK (137 MB)</div>
           </div>
 
           <!-- ARM64 -->
@@ -900,6 +932,7 @@
             </div>
             <div class="device-name">ARM64 (v8a)</div>
             <div class="device-desc">Modern smartphones & tablets. Smallest download and optimized 64-bit execution.</div>
+            <div class="device-download-btn">⬇️ Download APK (40.7 MB)</div>
           </div>
 
           <!-- ARM32 -->
@@ -910,6 +943,7 @@
             </div>
             <div class="device-name">ARM32 (v7a)</div>
             <div class="device-desc">Older hardware, budget phones, and Android Go devices manufactured before 2018.</div>
+            <div class="device-download-btn">⬇️ Download APK (38.4 MB)</div>
           </div>
 
           <!-- x86_64 -->
@@ -920,6 +954,7 @@
             </div>
             <div class="device-name">x86_64</div>
             <div class="device-desc">Android Emulators (BlueStacks, LDPlayer, Nox), ChromeOS, and Android-x86 PCs.</div>
+            <div class="device-download-btn">⬇️ Download APK (42.7 MB)</div>
           </div>
         </div>
 
@@ -930,11 +965,11 @@
             <div class="download-meta-desc" id="selectedArchHint">Size: ~137 MB • Compatible with 100% of Android 8.0+ devices</div>
           </div>
           <div class="action-btn-group">
-            <a id="downloadApkBtn" href="https://github.com/HrshD1eux/flowgrab-android/releases/download/v2.0.0-alpha.12/FlowGrab-2.0.0-alpha.12-generic-universal-release.apk" class="primary-download-btn">
+            <button type="button" id="downloadApkBtn" class="primary-download-btn">
               <span>⬇️</span> Download APK
-            </a>
-            <a href="https://github.com/HrshD1eux/flowgrab-android/releases" target="_blank" class="secondary-btn">
-              <span>🏷️</span> All Releases
+            </button>
+            <a href="https://github.com/HrshD1eux/flowgrab-android" target="_blank" class="secondary-btn">
+              <span>⭐</span> Star on GitHub
             </a>
           </div>
         </div>
@@ -1230,7 +1265,7 @@
   </footer>
 
   <script>
-    // Direct release asset links for instant 1-click download
+    // Direct release asset links for instant 1-click download (never redirects to releases page)
     const downloadUrls = {
       'universal': 'https://github.com/HrshD1eux/flowgrab-android/releases/download/v2.0.0-alpha.12/FlowGrab-2.0.0-alpha.12-generic-universal-release.apk',
       'arm64-v8a': 'https://github.com/HrshD1eux/flowgrab-android/releases/download/v2.0.0-alpha.12/FlowGrab-2.0.0-alpha.12-generic-arm64-v8a-release.apk',
@@ -1238,26 +1273,101 @@
       'x86_64': 'https://github.com/HrshD1eux/flowgrab-android/releases/download/v2.0.0-alpha.12/FlowGrab-2.0.0-alpha.12-generic-x86_64-release.apk'
     };
 
+    let currentArch = 'universal';
     const options = document.querySelectorAll('.device-option');
     const label = document.getElementById('selectedArchLabel');
     const hint = document.getElementById('selectedArchHint');
     const btn = document.getElementById('downloadApkBtn');
 
+    // Trigger direct APK browser download without navigating away
+    function triggerDirectDownload(url, fileName) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.setAttribute('download', fileName || 'FlowGrab.apk');
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (document.body.contains(a)) document.body.removeChild(a);
+      }, 1000);
+    }
+
+    function selectArch(arch) {
+      currentArch = arch;
+      options.forEach(o => {
+        if (o.getAttribute('data-arch') === arch) {
+          o.classList.add('active');
+          const size = o.getAttribute('data-size');
+          const archHint = o.getAttribute('data-hint');
+          const name = o.querySelector('.device-name').innerText;
+          label.innerText = `FlowGrab v2.0.0 — ${name} APK`;
+          hint.innerText = `Size: ~${size} • ${archHint}`;
+        } else {
+          o.classList.remove('active');
+        }
+      });
+    }
+
     options.forEach(opt => {
       opt.addEventListener('click', () => {
-        options.forEach(o => o.classList.remove('active'));
-        opt.classList.add('active');
-
         const arch = opt.getAttribute('data-arch');
-        const size = opt.getAttribute('data-size');
-        const archHint = opt.getAttribute('data-hint');
-        const name = opt.querySelector('.device-name').innerText;
-
-        label.innerText = `FlowGrab v2.0.0 — ${name} APK`;
-        hint.innerText = `Size: ~${size} • ${archHint}`;
-        btn.href = downloadUrls[arch] || 'https://github.com/HrshD1eux/flowgrab-android/releases/latest';
+        selectArch(arch);
       });
     });
+
+    // Device card inline buttons trigger direct download immediately
+    document.querySelectorAll('.device-download-btn').forEach(cardBtn => {
+      cardBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const card = cardBtn.closest('.device-option');
+        const arch = card.getAttribute('data-arch');
+        selectArch(arch);
+        
+        const url = downloadUrls[arch] || downloadUrls['universal'];
+        const fileName = url.substring(url.lastIndexOf('/') + 1);
+        
+        const oldText = cardBtn.innerText;
+        cardBtn.innerText = '⏳ Downloading...';
+        triggerDirectDownload(url, fileName);
+        
+        setTimeout(() => {
+          cardBtn.innerText = oldText;
+        }, 2500);
+      });
+    });
+
+    // Main action bar download button triggers direct download
+    btn.addEventListener('click', () => {
+      const url = downloadUrls[currentArch] || downloadUrls['universal'];
+      const fileName = url.substring(url.lastIndexOf('/') + 1);
+      
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = `<span>⏳</span> Downloading...`;
+      triggerDirectDownload(url, fileName);
+      
+      setTimeout(() => {
+        btn.innerHTML = originalHtml;
+      }, 2500);
+    });
+
+    // Dynamically query GitHub API to keep URLs dynamically evergreen across releases
+    fetch('https://api.github.com/repos/HrshD1eux/flowgrab-android/releases')
+      .then(r => r.json())
+      .then(releases => {
+        const latest = Array.isArray(releases) && releases.length > 0 ? releases[0] : null;
+        if (latest && latest.assets && latest.assets.length > 0) {
+          latest.assets.forEach(asset => {
+            const name = asset.name.toLowerCase();
+            if (name.includes('arm64-v8a')) downloadUrls['arm64-v8a'] = asset.browser_download_url;
+            else if (name.includes('armeabi-v7a')) downloadUrls['armeabi-v7a'] = asset.browser_download_url;
+            else if (name.includes('x86_64')) downloadUrls['x86_64'] = asset.browser_download_url;
+            else if (name.includes('universal')) downloadUrls['universal'] = asset.browser_download_url;
+          });
+        }
+      })
+      .catch(() => {
+        // Fallback URLs already initialized to verified direct release APKs
+      });
 
     // FAQ Accordion Interactivity
     document.querySelectorAll('.faq-question').forEach(q => {
