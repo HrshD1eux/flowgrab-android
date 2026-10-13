@@ -1,0 +1,161 @@
+name: Build & Publish Release
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+  workflow_dispatch:
+    inputs:
+      manual_tag:
+        description: 'Optional custom release tag (e.g. v2.0.0). Leave blank to auto-bump.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Accept Android SDK Licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradlew Executable
+        run: chmod +x gradlew
+
+      - name: Configure Gradle Properties for CI
+        run: |
+          sed -i '/org.gradle.java.home/d' gradle.properties
+
+      - name: Bump Version & Prepare Release
+        id: version_bump
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -n "${{ github.event.inputs.manual_tag }}" ]; then
+            VERSION_NAME="${{ github.event.inputs.manual_tag }}"
+            VERSION_NAME="${VERSION_NAME#v}"
+            TAG_NAME="v${VERSION_NAME}"
+          else
+            CURRENT_BUILD=$(grep -o "versionBuild = [0-9]*" buildSrc/src/main/kotlin/Version.kt | awk '{print $3}')
+            NEW_BUILD=$((CURRENT_BUILD + 1))
+            sed -i "s/versionBuild = $CURRENT_BUILD/versionBuild = $NEW_BUILD/" buildSrc/src/main/kotlin/Version.kt
+            
+            VERSION_NAME=$(./gradlew -q :app:printVersionName | tr -d '\r')
+            if [ -z "${VERSION_NAME}" ]; then
+              MAJOR=$(grep -o "versionMajor = [0-9]*" buildSrc/src/main/kotlin/Version.kt | awk '{print $3}')
+              MINOR=$(grep -o "versionMinor = [0-9]*" buildSrc/src/main/kotlin/Version.kt | awk '{print $3}')
+              PATCH=$(grep -o "versionPatch = [0-9]*" buildSrc/src/main/kotlin/Version.kt | awk '{print $3}')
+              VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}-alpha.${NEW_BUILD}"
+            fi
+            TAG_NAME="v${VERSION_NAME}"
+          fi
+
+          echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Setup Signing Keystore
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > flowgrab-release.jks
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}" > keystore.properties
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
+            echo "storeFile=flowgrab-release.jks" >> keystore.properties
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> keystore.properties
+          else
+            echo "WARNING: KEYSTORE_BASE64 secret not found in repository secrets. Building unsigned release."
+          fi
+
+      - name: Build Generic Release APKs
+        run: ./gradlew assembleGenericRelease
+
+      - name: Verify Generated APKs
+        run: |
+          ls -la app/build/outputs/apk/generic/release/
+          APK_COUNT=$(find app/build/outputs/apk/generic/release/ -maxdepth 1 -name "*.apk" | wc -l)
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "Error: No APK files were generated!"
+            exit 1
+          fi
+          echo "Found $APK_COUNT APK files ready for release."
+
+      - name: Clean up Keystore
+        if: always()
+        run: |
+          rm -f flowgrab-release.jks keystore.properties
+
+      - name: Upload APKs as Workflow Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlowGrab-${{ steps.version_bump.outputs.tag_name }}-APKs
+          path: app/build/outputs/apk/generic/release/*.apk
+          if-no-files-found: error
+
+      - name: Commit Version Bump & Push Tag
+        run: |
+          git add buildSrc/src/main/kotlin/Version.kt
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): bump version to ${{ steps.version_bump.outputs.version_name }} [skip ci]"
+            git push origin main
+          fi
+          git tag -f "${{ steps.version_bump.outputs.tag_name }}"
+          git push origin "${{ steps.version_bump.outputs.tag_name }}" --force
+
+      - name: Generate Release Notes
+        run: |
+          cat << 'EOF' > release_notes.md
+          ## 🎉 FlowGrab ${{ steps.version_bump.outputs.tag_name }}
+
+          ### 🚀 What's New in This Version:
+          - ⚡ **Instant Cold Start**: Zero startup latency with background initialization and 0-duration splash transition.
+          - 🎨 **Modern Edge-to-Edge UI**: Removed top dead-space across navigation drawer, settings subpages, and downloads.
+          - 💾 **Persistent View & Settings**: Grid / List view mode and app preferences persist reliably across app restarts via MMKV write-through state delegates.
+          - ⏯️ **Queue Quick Actions**: 3-dot dropdown menu in downloads (Resume All, Pause All, Clear Completed, Clear Queue).
+          - 🕒 **Download Timestamps**: Exact download date & time alongside file size on media cards and details drawer.
+          - 🛡️ **YouTube Anti-Bot & SABR Bypass**: Built-in client profile spoofing (`player_client=android_creator,web,tv`) eliminates web botguard challenges and bypasses 40-70 KB/s SABR speed throttles without requiring custom browser cookies.
+          - 🚀 **High-Speed Batch Downloading**: Multi-URL batch queuing with aria2c concurrent fragment acceleration.
+          - 🔄 **In-App Auto-Updates**: In-app automated release checking with seamless per-architecture APK downloads.
+          - 📱 **Multi-Architecture Builds**: Universal, ARM64 (`arm64-v8a`), ARM32 (`armeabi-v7a`), and x86_64.
+
+          ### 📦 Download Assets:
+          Select the APK matching your device's architecture below (or download the **Universal** build if unsure).
+          EOF
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version_bump.outputs.tag_name }}
+          name: FlowGrab ${{ steps.version_bump.outputs.tag_name }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(steps.version_bump.outputs.version_name, 'alpha') || contains(steps.version_bump.outputs.version_name, 'beta') || contains(steps.version_bump.outputs.version_name, 'rc') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            app/build/outputs/apk/generic/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

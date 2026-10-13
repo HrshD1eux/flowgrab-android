@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowGrab — Next-Gen Android Video & Audio Downloader</title>
+  <meta name="description" content="High-performance, resilient video and audio downloader for Android powered by yt-dlp. Instant launch, SABR throttling bypass, multi-URL batching, and Material 3 design.">
+  <meta name="theme-color" content="#2563EB">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #2563EB;
+      --primary-hover: #1D4ED8;
+      --primary-light: #EFF6FF;
+      --primary-glow: rgba(37, 99, 235, 0.2);
+      --accent: #0D9488;
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --surface-border: #E2E8F0;
+      --text: #0F172A;
+      --text-muted: #64748B;
+      --text-light: #94A3B8;
+      --success: #16A34A;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.03);
+      --shadow-lg: 0 12px 36px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header & Navigation */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      background-color: rgba(255, 255, 255, 0.85);
+      border-bottom: 1px solid var(--surface-border);
+      transition: all 0.3s ease;
+    }
+
+    .nav-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand img {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--primary);
+    }
+
+    .header-btn {
+      padding: 10px 20px;
+      background: var(--primary);
+      color: #fff !important;
+      border-radius: var(--radius-full);
+      font-size: 0.9rem;
+      box-shadow: 0 2px 8px var(--primary-glow);
+      transition: all 0.2s ease;
+    }
+
+    .header-btn:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: var(--radius-full);
+      background: var(--primary-light);
+      color: var(--primary);
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      border: 1px solid rgba(37, 99, 235, 0.2);
+    }
+
+    .hero-logo-wrapper {
+      margin-bottom: 24px;
+      display: inline-block;
+      position: relative;
+    }
+
+    .hero-logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 28px;
+      box-shadow: 0 12px 32px rgba(37, 99, 235, 0.25);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .hero-logo:hover {
+      transform: scale(1.06) rotate(2deg);
+    }
+
+    .hero h1 {
+      font-size: 3.25rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 18px;
+      color: #0F172A;
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, #2563EB 0%, #0D9488 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto 36px;
+      font-weight: 400;
+    }
+
+    /* Device Selector & Download Box */
+    .download-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      max-width: 820px;
+      margin: 0 auto 60px;
+      box-shadow: var(--shadow-lg);
+      text-align: left;
+    }
+
+    .download-card-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .device-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .device-option {
+      background: var(--bg);
+      border: 2px solid transparent;
+      border-radius: var(--radius-md);
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .device-option:hover {
+      background: #F1F5F9;
+      transform: translateY(-2px);
+    }
+
+    .device-option.active {
+      background: var(--primary-light);
+      border-color: var(--primary);
+    }
+
+    .device-option-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .device-icon {
+      font-size: 1.5rem;
+    }
+
+    .device-tag {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-weight: 700;
+      background: #E2E8F0;
+      color: var(--text-muted);
+    }
+
+    .device-option.active .device-tag {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .device-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    .device-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    .download-action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--surface-border);
+    }
+
+    .download-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .download-target-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .download-target-hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .action-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .primary-download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 28px;
+      background: var(--primary);
+      color: #FFFFFF;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.05rem;
+      border-radius: var(--radius-full);
+      box-shadow: 0 4px 14px var(--primary-glow);
+      transition: all 0.2s ease;
+    }
+
+    .primary-download-btn:hover {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+    }
+
+    .secondary-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 22px;
+      background: #F1F5F9;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--surface-border);
+      transition: all 0.2s ease;
+    }
+
+    .secondary-btn:hover {
+      background: #E2E8F0;
+    }
+
+    /* Section Styling */
+    section {
+      padding: 80px 0;
+    }
+
+    .section-title-wrap {
+      text-align: center;
+      max-width: 650px;
+      margin: 0 auto 50px;
+    }
+
+    .section-tag {
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--primary);
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .section-title {
+      font-size: 2.3rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+
+    /* Feature Cards Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.25s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-md);
+      border-color: rgba(37, 99, 235, 0.3);
+    }
+
+    .feature-icon-box {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: var(--primary-light);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+    }
+
+    .feature-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .feature-text {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+
+    /* Comparison Table */
+    .table-container {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-lg);
+      overflow-x: auto;
+      box-shadow: var(--shadow-md);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--surface-border);
+    }
+
+    th {
+      background: #F8FAFC;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    th.highlight-col, td.highlight-col {
+      background: rgba(37, 99, 235, 0.04);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    th.highlight-col {
+      color: var(--primary);
+      border-top: 3px solid var(--primary);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .check-yes {
+      color: var(--success);
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .check-no {
+      color: #EF4444;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .check-warn {
+      color: #F59E0B;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* FAQ Accordion */
+    .faq-grid {
+      max-width: 820px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .faq-item {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .faq-question {
+      padding: 20px 24px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+
+    .faq-answer {
+      padding: 0 24px 20px;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      display: none;
+    }
+
+    .faq-item.open .faq-answer {
+      display: block;
+    }
+
+    .faq-arrow {
+      transition: transform 0.2s ease;
+    }
+
+    .faq-item.open .faq-arrow {
+      transform: rotate(180deg);
+    }
+
+    /* Footer */
+    footer {
+      background: #FFFFFF;
+      border-top: 1px solid var(--surface-border);
+      padding: 60px 0 30px;
+      margin-top: 60px;
+    }
+
+    .footer-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid var(--surface-border);
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 1.15rem;
+    }
+
+    .footer-brand img {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary);
+    }
+
+    .footer-bottom {
+      padding-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-light);
+      font-size: 0.85rem;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2.4rem; }
+      .nav-links { display: none; }
+      .download-card { padding: 24px; }
+      .download-action-bar { flex-direction: column; align-items: stretch; }
+      .action-btn-group { flex-direction: column; width: 100%; }
+      .primary-download-btn, .secondary-btn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header>
+    <div class="container nav-wrapper">
+      <a href="#" class="brand">
+        <img src="icon.png" alt="FlowGrab Icon">
+        FlowGrab
+      </a>
+      <ul class="nav-links">
+        <li><a href="#download">Download</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#comparison">Comparison</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="https://github.com/HrshD1eux/flowgrab-android" target="_blank">GitHub</a></li>
+      </ul>
+      <a href="#download" class="header-btn">Get App</a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">
+        <span>✨</span> FlowGrab v2.0.0 Now Available
+      </div>
+
+      <div class="hero-logo-wrapper">
+        <img src="icon.png" alt="FlowGrab App Logo" class="hero-logo">
+      </div>
+
+      <h1>The Ultimate <span>Video & Audio Downloader</span> for Android</h1>
+      <p class="hero-subtitle">
+        Powered by yt-dlp, tuned for mobile flash storage, and built with modern Jetpack Compose. Lightning-fast launch, no throttling, and complete format precision.
+      </p>
+
+      <!-- Download Card with Device Selector -->
+      <div id="download" class="download-card">
+        <div class="download-card-title">
+          <span>📱</span> Choose Your Device Architecture
+        </div>
+
+        <div class="device-grid">
+          <!-- Universal -->
+          <div class="device-option active" data-arch="universal" data-size="~42 MB" data-hint="Compatible with all Android 8.0+ devices">
+            <div class="device-option-header">
+              <span class="device-icon">🌐</span>
+              <span class="device-tag">Recommended</span>
+            </div>
+            <div class="device-name">Universal</div>
+            <div class="device-desc">Runs on all devices. Best choice if you're unsure of your chip architecture.</div>
+          </div>
+
+          <!-- ARM64 -->
+          <div class="device-option" data-arch="arm64-v8a" data-size="~32 MB" data-hint="64-bit ARM for Pixel, Galaxy, OnePlus, Xiaomi">
+            <div class="device-option-header">
+              <span class="device-icon">⚡</span>
+              <span class="device-tag">Fastest</span>
+            </div>
+            <div class="device-name">ARM64 (v8a)</div>
+            <div class="device-desc">Modern smartphones & tablets. Smallest size and fastest execution speed.</div>
+          </div>
+
+          <!-- ARM32 -->
+          <div class="device-option" data-arch="armeabi-v7a" data-size="~30 MB" data-hint="32-bit ARM for older phones & Android Go">
+            <div class="device-option-header">
+              <span class="device-icon">🔋</span>
+              <span class="device-tag">Legacy</span>
+            </div>
+            <div class="device-name">ARM32 (v7a)</div>
+            <div class="device-desc">Older hardware and budget Android Go devices built before 2018.</div>
+          </div>
+
+          <!-- x86_64 -->
+          <div class="device-option" data-arch="x86_64" data-size="~33 MB" data-hint="x86_64 for Emulators, Chromebooks & PCs">
+            <div class="device-option-header">
+              <span class="device-icon">💻</span>
+              <span class="device-tag">Desktop</span>
+            </div>
+            <div class="device-name">x86_64</div>
+            <div class="device-desc">Android Emulators (BlueStacks, LDPlayer), Chromebooks, and Android-x86.</div>
+          </div>
+        </div>
+
+        <!-- Download Action Bar -->
+        <div class="download-action-bar">
+          <div class="download-meta">
+            <div class="download-target-label" id="selectedArchLabel">FlowGrab v2.0.0 — Universal APK</div>
+            <div class="download-target-hint" id="selectedArchHint">Estimated size: ~42 MB • Compatible with all Android 8.0+ devices</div>
+          </div>
+
+          <div class="action-btn-group">
+            <a href="https://github.com/HrshD1eux/flowgrab-android/releases/latest" id="downloadApkBtn" class="primary-download-btn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Download APK
+            </a>
+            <a href="https://github.com/HrshD1eux/flowgrab-android/releases" target="_blank" class="secondary-btn">
+              All Releases
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section id="features">
+    <div class="container">
+      <div class="section-title-wrap">
+        <span class="section-tag">Performance Engineered</span>
+        <h2 class="section-title">Built for Speed, Reliability & Precision</h2>
+        <p class="section-desc">Designed from the ground up to solve common Android downloader issues like throttling, battery drain, and killed background processes.</p>
+      </div>
+
+      <div class="features-grid">
+        <!-- Feature 1 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">⚡</div>
+          <h3 class="feature-title">Instant App Cold Start</h3>
+          <p class="feature-text">Zero main-thread blocking on startup with zero-delay splash transitions. Launches in under 100ms on modern devices.</p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">🛡️</div>
+          <h3 class="feature-title">SABR Anti-Throttle Bypass</h3>
+          <p class="feature-text">Native client spoofing (<code>android_creator, web, tv</code>) bypasses YouTube's 40–70 KB/s throttles and botguard challenges without requiring custom cookies.</p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">📦</div>
+          <h3 class="feature-title">Batch Multi-URL Downloads</h3>
+          <p class="feature-text">Paste multiple video or audio links simultaneously. Full concurrent fragment acceleration via aria2c tuned specifically for mobile flash memory.</p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">🎵</div>
+          <h3 class="feature-title">Real Size & Quality Computation</h3>
+          <p class="feature-text">True real-time size calculations for MP3 320kbps CBR, Opus, M4A/AAC, FLAC, and WAV. No arbitrary hardcoded guesses.</p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">🔄</div>
+          <h3 class="feature-title">In-App Auto-Updates</h3>
+          <p class="feature-text">Checks GitHub directly for new releases and downloads the exact APK for your device architecture. Built-in self-healing OTA core for yt-dlp.</p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="feature-card">
+          <div class="feature-icon-box">🎨</div>
+          <h3 class="feature-title">Modern Edge-to-Edge UI</h3>
+          <p class="feature-text">Material Design 3 with dynamic theme palettes, persistent grid/list view toggle, and zero dead white-space on all screens.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Section -->
+  <section id="comparison">
+    <div class="container">
+      <div class="section-title-wrap">
+        <span class="section-tag">Direct Comparison</span>
+        <h2 class="section-title">Why FlowGrab Stands Apart</h2>
+        <p class="section-desc">See how FlowGrab compares with legacy tools and other Android downloaders.</p>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th class="highlight-col">FlowGrab (v2.0.0)</th>
+              <th>Legacy Seal</th>
+              <th>NewPipe</th>
+              <th>YTDL-GUI</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>YouTube SABR Speed Bypass</strong></td>
+              <td class="highlight-col"><span class="check-yes">✓ Native spoofing</span></td>
+              <td><span class="check-no">✗ Throttled (40 KB/s)</span></td>
+              <td><span class="check-warn">⚠ Stream drops</span></td>
+              <td><span class="check-no">✗ Requires cookies</span></td>
+            </tr>
+            <tr>
+              <td><strong>App Launch Time</strong></td>
+              <td class="highlight-col"><span class="check-yes">✓ Instant (&lt;100ms)</span></td>
+              <td><span class="check-no">✗ 1.5s+ blocking</span></td>
+              <td><span class="check-warn">⚠ Moderate</span></td>
+              <td><span class="check-no">✗ Slow</span></td>
+            </tr>
+            <tr>
+              <td><strong>Multi-URL Batch Queuing</strong></td>
+              <td class="highlight-col"><span class="check-yes">✓ Yes (Simultaneous)</span></td>
+              <td><span class="check-no">✗ Single-link only</span></td>
+              <td><span class="check-warn">⚠ Playlists only</span></td>
+              <td><span class="check-warn">⚠ Unstable</span></td>
+            </tr>
+            <tr>
+              <td><strong>Background Service (Android 14+)</strong></td>
+              <td class="highlight-col"><span class="check-yes">✓ Special Use Service</span></td>
+              <td><span class="check-warn">⚠ Killed on swipe</span></td>
+              <td><span class="check-warn">⚠ Frequent kill</span></td>
+              <td><span class="check-no">✗ No service</span></td>
+            </tr>
+            <tr>
+              <td><strong>Real-Time Size Calculation</strong></td>
+              <td class="highlight-col"><span class="check-yes">✓ Dynamic & Accurate</span></td>
+              <td><span class="check-no">✗ Hardcoded estimates</span></td>
+              <td><span class="check-no">✗ None</span></td>
+              <td><span class="check-warn">⚠ Slow probe</span></td>
+            </tr>
+            <tr>
+              <td><strong>Zero Software Transcoding</strong></td>
+              <td class="highlight-col"><span class="check-yes">✓ Stream-copy remux</span></td>
+              <td><span class="check-warn">⚠ High CPU pegging</span></td>
+              <td><span class="check-warn">⚠ N/A</span></td>
+              <td><span class="check-no">✗ Heavy battery drain</span></td>
+            </tr>
+            <tr>
+              <td><strong>In-App Auto Updates</strong></td>
+              <td class="highlight-col"><span class="check-yes">✓ GitHub direct by arch</span></td>
+              <td><span class="check-warn">⚠ F-Droid delay</span></td>
+              <td><span class="check-yes">✓ Built-in</span></td>
+              <td><span class="check-no">✗ Manual</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section id="faq">
+    <div class="container">
+      <div class="section-title-wrap">
+        <span class="section-tag">Frequently Asked Questions</span>
+        <h2 class="section-title">Everything You Need to Know</h2>
+      </div>
+
+      <div class="faq-grid">
+        <div class="faq-item open">
+          <div class="faq-question">
+            <span>How do I install FlowGrab on my Android device?</span>
+            <span class="faq-arrow">▼</span>
+          </div>
+          <div class="faq-answer">
+            1. Download the APK (choose <strong>Universal</strong> if you're not sure which chip your device has).<br>
+            2. Open the downloaded <code>.apk</code> file in your browser or file manager.<br>
+            3. When prompted, enable <strong>"Allow from this source"</strong> in your device settings to permit APK installation.<br>
+            4. Tap <strong>Install</strong> and enjoy!
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Which architecture should I choose?</span>
+            <span class="faq-arrow">▼</span>
+          </div>
+          <div class="faq-answer">
+            Almost all modern Android phones produced since 2018 (Google Pixel, Samsung Galaxy, OnePlus, Xiaomi) use <strong>ARM64 (arm64-v8a)</strong>. If you are unsure, the <strong>Universal</strong> build works on 100% of Android devices.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Why is FlowGrab faster than other downloaders?</span>
+            <span class="faq-arrow">▼</span>
+          </div>
+          <div class="faq-answer">
+            FlowGrab uses custom yt-dlp client profile spoofing to bypass YouTube's SABR bandwidth throttling (which normally restricts downloads to 40–70 KB/s). It also utilizes multi-threaded segment downloads via <code>aria2c</code> and zero-transcoding remuxing.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Is FlowGrab free and open source?</span>
+            <span class="faq-arrow">▼</span>
+          </div>
+          <div class="faq-answer">
+            Yes! FlowGrab is completely free and licensed under the <strong>GNU General Public License v3.0 (GPLv3)</strong>. There are no ads, trackers, subscriptions, or paywalls.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <img src="icon.png" alt="FlowGrab Icon">
+          FlowGrab
+        </div>
+        <ul class="footer-links">
+          <li><a href="https://github.com/HrshD1eux/flowgrab-android" target="_blank">GitHub</a></li>
+          <li><a href="https://github.com/HrshD1eux/flowgrab-android/releases" target="_blank">Releases</a></li>
+          <li><a href="https://github.com/HrshD1eux/flowgrab-android/issues" target="_blank">Report Issue</a></li>
+          <li><a href="https://github.com/HrshD1eux" target="_blank">Developer</a></li>
+        </ul>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 FlowGrab. Licensed under GPL v3.0.</span>
+        <span>Crafted by <a href="https://github.com/HrshD1eux" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600;">HrshD1eux</a>.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Architecture Selector Interactivity
+    const options = document.querySelectorAll('.device-option');
+    const label = document.getElementById('selectedArchLabel');
+    const hint = document.getElementById('selectedArchHint');
+    const btn = document.getElementById('downloadApkBtn');
+
+    const downloadUrls = {
+      'universal': 'https://github.com/HrshD1eux/flowgrab-android/releases/latest',
+      'arm64-v8a': 'https://github.com/HrshD1eux/flowgrab-android/releases/latest',
+      'armeabi-v7a': 'https://github.com/HrshD1eux/flowgrab-android/releases/latest',
+      'x86_64': 'https://github.com/HrshD1eux/flowgrab-android/releases/latest'
+    };
+
+    options.forEach(opt => {
+      opt.addEventListener('click', () => {
+        options.forEach(o => o.classList.remove('active'));
+        opt.classList.add('active');
+
+        const arch = opt.getAttribute('data-arch');
+        const size = opt.getAttribute('data-size');
+        const archHint = opt.getAttribute('data-hint');
+        const name = opt.querySelector('.device-name').innerText;
+
+        label.innerText = `FlowGrab v2.0.0 — ${name} APK`;
+        hint.innerText = `Estimated size: ${size} • ${archHint}`;
+        btn.href = downloadUrls[arch] || 'https://github.com/HrshD1eux/flowgrab-android/releases/latest';
+      });
+    });
+
+    // FAQ Accordion
+    document.querySelectorAll('.faq-question').forEach(q => {
+      q.addEventListener('click', () => {
+        const item = q.parentElement;
+        item.classList.toggle('open');
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+# Gradle & Build Artifacts
+.gradle/
+build/
+app/build/
+color/build/
+buildSrc/build/
+/build/
+bin/
+gen/
+out/
+captures/
+/captures
+
+# Packaging & Release Binaries
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+
+# Android Studio & JetBrains IDE
+.idea/
+.idea
+*.iml
+.kotlin/
+.navigation/
+
+# Native Build
+.externalNativeBuild
+.cxx/
+.cxx
+
+# Keystores & Signing Secrets (NEVER COMMIT)
+local.properties
+/local.properties
+keystore.properties
+/keystore.properties
+*.jks
+*.keystore
+keystore_base64.txt
+flowgrab-release.jks
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+scratch/
