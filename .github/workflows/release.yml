@@ -58,20 +58,32 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           if [ -n "${{ github.event.inputs.manual_tag }}" ]; then
-            VERSION_NAME="${{ github.event.inputs.manual_tag }}"
-            VERSION_NAME="${VERSION_NAME#v}"
+            RAW_TAG="${{ github.event.inputs.manual_tag }}"
+            RAW_TAG="${RAW_TAG#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$RAW_TAG"
+            MAJOR=${MAJOR:-2}
+            MINOR=${MINOR:-0}
+            PATCH=${PATCH:-1}
+            sed -i -E "s/versionMajor = [0-9]+/versionMajor = $MAJOR/" buildSrc/src/main/kotlin/Version.kt
+            sed -i -E "s/versionMinor = [0-9]+/versionMinor = $MINOR/" buildSrc/src/main/kotlin/Version.kt
+            sed -i -E "s/versionPatch = [0-9]+/versionPatch = $PATCH/" buildSrc/src/main/kotlin/Version.kt
+            sed -i -E "s/Version\.[a-zA-Z]+/Version.Stable/" buildSrc/src/main/kotlin/Version.kt
+            VERSION_NAME=$(./gradlew -q :app:printVersionName | tr -d '\r')
+            if [ -z "${VERSION_NAME}" ]; then
+              VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}"
+            fi
             TAG_NAME="v${VERSION_NAME}"
           else
-            CURRENT_BUILD=$(grep -o "versionBuild = [0-9]*" buildSrc/src/main/kotlin/Version.kt | awk '{print $3}')
-            NEW_BUILD=$((CURRENT_BUILD + 1))
-            sed -i "s/versionBuild = $CURRENT_BUILD/versionBuild = $NEW_BUILD/" buildSrc/src/main/kotlin/Version.kt
+            CURRENT_PATCH=$(grep -o "versionPatch = [0-9]*" buildSrc/src/main/kotlin/Version.kt | awk '{print $3}')
+            NEW_PATCH=$((CURRENT_PATCH + 1))
+            sed -i -E "s/versionPatch = $CURRENT_PATCH/versionPatch = $NEW_PATCH/" buildSrc/src/main/kotlin/Version.kt
+            sed -i -E "s/Version\.[a-zA-Z]+/Version.Stable/" buildSrc/src/main/kotlin/Version.kt
             
             VERSION_NAME=$(./gradlew -q :app:printVersionName | tr -d '\r')
             if [ -z "${VERSION_NAME}" ]; then
               MAJOR=$(grep -o "versionMajor = [0-9]*" buildSrc/src/main/kotlin/Version.kt | awk '{print $3}')
               MINOR=$(grep -o "versionMinor = [0-9]*" buildSrc/src/main/kotlin/Version.kt | awk '{print $3}')
-              PATCH=$(grep -o "versionPatch = [0-9]*" buildSrc/src/main/kotlin/Version.kt | awk '{print $3}')
-              VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}-alpha.${NEW_BUILD}"
+              VERSION_NAME="${MAJOR}.${MINOR}.${NEW_PATCH}"
             fi
             TAG_NAME="v${VERSION_NAME}"
           fi
@@ -153,7 +165,8 @@ jobs:
           name: FlowGrab ${{ steps.version_bump.outputs.tag_name }}
           body_path: release_notes.md
           draft: false
-          prerelease: ${{ contains(steps.version_bump.outputs.version_name, 'alpha') || contains(steps.version_bump.outputs.version_name, 'beta') || contains(steps.version_bump.outputs.version_name, 'rc') }}
+          prerelease: false
+          make_latest: true
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |

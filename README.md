@@ -22,7 +22,7 @@
 
 ---
 
-## ⚡ What's New in FlowGrab v2.0.0
+## ⚡ Key Highlights & Core Features
 
 * **Instant App Cold Start:** Eliminated main-thread startup blocking and system splash lag (windowSplashScreenAnimationDuration = 0) for instantaneous launch.
 * **Modern Edge-to-Edge UI:** Eliminated top dead-space across side navigation drawer, settings subpages, and downloads page.

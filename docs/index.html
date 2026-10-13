@@ -884,8 +884,8 @@
       </div>
 
       <!-- Release Badge Centered Beneath Logo -->
-      <div class="hero-badge">
-        <span>✨</span> FlowGrab v2.0.0 is Live • 100% Free & Open Source
+      <div class="hero-badge" id="heroBadge">
+        <span>✨</span> FlowGrab is Live • 100% Free & Open Source
       </div>
 
       <!-- High-Ranking H1 Heading -->
@@ -961,7 +961,7 @@
         <!-- Download Action Bar -->
         <div class="download-action-bar">
           <div class="download-meta">
-            <div class="download-meta-title" id="selectedArchLabel">FlowGrab v2.0.0 — Universal APK</div>
+            <div class="download-meta-title" id="selectedArchLabel">FlowGrab — Universal APK</div>
             <div class="download-meta-desc" id="selectedArchHint">Size: ~137 MB • Compatible with 100% of Android 8.0+ devices</div>
           </div>
           <div class="action-btn-group">
@@ -1300,7 +1300,7 @@
           const size = o.getAttribute('data-size');
           const archHint = o.getAttribute('data-hint');
           const name = o.querySelector('.device-name').innerText;
-          label.innerText = `FlowGrab v2.0.0 — ${name} APK`;
+          label.innerText = `FlowGrab — ${name} APK`;
           hint.innerText = `Size: ~${size} • ${archHint}`;
         } else {
           o.classList.remove('active');
@@ -1355,14 +1355,20 @@
       .then(r => r.json())
       .then(releases => {
         const latest = Array.isArray(releases) && releases.length > 0 ? releases[0] : null;
-        if (latest && latest.assets && latest.assets.length > 0) {
-          latest.assets.forEach(asset => {
-            const name = asset.name.toLowerCase();
-            if (name.includes('arm64-v8a')) downloadUrls['arm64-v8a'] = asset.browser_download_url;
-            else if (name.includes('armeabi-v7a')) downloadUrls['armeabi-v7a'] = asset.browser_download_url;
-            else if (name.includes('x86_64')) downloadUrls['x86_64'] = asset.browser_download_url;
-            else if (name.includes('universal')) downloadUrls['universal'] = asset.browser_download_url;
-          });
+        if (latest) {
+          if (latest.tag_name) {
+            const badge = document.getElementById('heroBadge');
+            if (badge) badge.innerHTML = `<span>✨</span> FlowGrab ${latest.tag_name} is Live • 100% Free & Open Source`;
+          }
+          if (latest.assets && latest.assets.length > 0) {
+            latest.assets.forEach(asset => {
+              const name = asset.name.toLowerCase();
+              if (name.includes('arm64-v8a')) downloadUrls['arm64-v8a'] = asset.browser_download_url;
+              else if (name.includes('armeabi-v7a')) downloadUrls['armeabi-v7a'] = asset.browser_download_url;
+              else if (name.includes('x86_64')) downloadUrls['x86_64'] = asset.browser_download_url;
+              else if (name.includes('universal')) downloadUrls['universal'] = asset.browser_download_url;
+            });
+          }
         }
       })
       .catch(() => {
