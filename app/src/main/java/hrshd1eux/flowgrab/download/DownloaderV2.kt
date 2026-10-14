@@ -233,16 +233,23 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
         }
     }
 
+    private fun updateTaskState(task: Task, transform: (Task.State) -> Task.State) {
+        synchronized(taskStateMap) {
+            val current = taskStateMap[task] ?: return
+            taskStateMap[task] = transform(current)
+        }
+    }
+
     override fun enqueue(task: Task) {
-        androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
-            taskStateMap +=
-                task to Task.State(Idle, null, Task.ViewState(url = task.url, title = task.url))
+        synchronized(taskStateMap) {
+            taskStateMap[task] =
+                Task.State(Idle, null, Task.ViewState(url = task.url, title = task.url))
         }
     }
 
     override fun enqueue(task: Task, state: Task.State) {
-        androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
-            taskStateMap += task to state
+        synchronized(taskStateMap) {
+            taskStateMap[task] = state
         }
     }
 
@@ -254,13 +261,8 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     override fun remove(task: Task): Boolean {
         autoHealedTaskIds.remove(task.id)
         taskOutputMap.remove(task.id)
-        return androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
-            if (taskStateMap.contains(task)) {
-                taskStateMap.remove(task)
-                true
-            } else {
-                false
-            }
+        return synchronized(taskStateMap) {
+            taskStateMap.remove(task) != null
         }
     }
 
@@ -272,10 +274,10 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     }
 
     private var Task.state: Task.State?
-        get() = taskStateMap[this]
+        get() = synchronized(taskStateMap) { taskStateMap[this] }
         set(value) {
             if (value != null) {
-                androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
+                synchronized(taskStateMap) {
                     taskStateMap[this] = value
                 }
             }
@@ -284,28 +286,19 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     private var Task.downloadState: DownloadState
         get() = state?.downloadState ?: DownloadState.Canceled(Task.RestartableAction.FetchInfo, null)
         set(value) {
-            androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
-                val prevState = state ?: return@withMutableSnapshot
-                taskStateMap[this] = prevState.copy(downloadState = value)
-            }
+            updateTaskState(this) { it.copy(downloadState = value) }
         }
 
     private var Task.info: VideoInfo?
         get() = state?.videoInfo
         set(value) {
-            androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
-                val prevState = state ?: return@withMutableSnapshot
-                taskStateMap[this] = prevState.copy(videoInfo = value)
-            }
+            updateTaskState(this) { it.copy(videoInfo = value) }
         }
 
     private var Task.viewState: Task.ViewState
         get() = state?.viewState ?: Task.ViewState(url = url)
         set(value) {
-            androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
-                val prevState = state ?: return@withMutableSnapshot
-                taskStateMap[this] = prevState.copy(viewState = value)
-            }
+            updateTaskState(this) { it.copy(viewState = value) }
         }
 
     private val Task.notificationId: Int
