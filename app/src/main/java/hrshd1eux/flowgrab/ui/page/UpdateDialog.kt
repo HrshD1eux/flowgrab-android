@@ -43,16 +43,14 @@ fun UpdateDialog(onDismissRequest: () -> Unit, release: UpdateUtil.Release) {
     val scope = rememberCoroutineScope()
     UpdateDialogImpl(
         onDismissRequest = onDismissRequest,
-        title = release.name.toString(),
+        title = (release.name?.takeIf { it.isNotBlank() } ?: release.tagName ?: "Update").toString(),
         onConfirmUpdate = {
             scope.launch(Dispatchers.IO) {
                 runCatching {
-                        UpdateUtil.downloadApk(release = release).collect { downloadStatus ->
+                        UpdateUtil.downloadApk(context = context, release = release).collect { downloadStatus ->
                             currentDownloadStatus = downloadStatus
                             if (downloadStatus is UpdateUtil.DownloadStatus.Finished) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                    UpdateUtil.installLatestApk()
-                                }
+                                UpdateUtil.installLatestApk(context)
                             }
                         }
                     }
@@ -64,7 +62,7 @@ fun UpdateDialog(onDismissRequest: () -> Unit, release: UpdateUtil.Release) {
                     }
             }
         },
-        releaseNote = release.body.toString(),
+        releaseNote = release.body.orEmpty(),
         downloadStatus = currentDownloadStatus,
     )
 }
@@ -77,6 +75,7 @@ fun UpdateDialogImpl(
     releaseNote: String,
     downloadStatus: UpdateUtil.DownloadStatus,
 ) {
+    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = {},
         title = { Text(title) },
@@ -84,12 +83,20 @@ fun UpdateDialogImpl(
         confirmButton = {
             Button(
                 onClick = {
-                    if (downloadStatus !is UpdateUtil.DownloadStatus.Progress) onConfirmUpdate()
+                    if (downloadStatus is UpdateUtil.DownloadStatus.Finished) {
+                        UpdateUtil.installLatestApk(context)
+                    } else if (downloadStatus !is UpdateUtil.DownloadStatus.Progress) {
+                        onConfirmUpdate()
+                    }
                 }
             ) {
                 Text(
                     when (downloadStatus) {
-                        is UpdateUtil.DownloadStatus.Progress -> "${downloadStatus.percent} %"
+                        is UpdateUtil.DownloadStatus.Progress -> {
+                            if (downloadStatus.percent >= 0) "${downloadStatus.percent} %"
+                            else stringResource(R.string.downloading_indicator_text)
+                        }
+                        is UpdateUtil.DownloadStatus.Finished -> stringResource(R.string.install)
                         else -> stringResource(R.string.update)
                     },
                     modifier = Modifier.animateContentSize(),

@@ -3,7 +3,9 @@ package hrshd1eux.flowgrab.util
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import hrshd1eux.flowgrab.App
@@ -14,6 +16,7 @@ import hrshd1eux.flowgrab.util.PreferenceUtil.getInt
 import hrshd1eux.flowgrab.util.PreferenceUtil.updateLong
 import com.yausername.youtubedl_android.YoutubeDL
 import java.io.File
+import java.io.IOException
 import java.util.regex.Pattern
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -118,25 +121,46 @@ object UpdateUtil {
 
     private fun Context.getLatestApk() = File(getExternalFilesDir("apk"), "latest.apk")
 
-    fun installLatestApk(context: Context = App.context) =
-        context.run {
-            kotlin
-                .runCatching {
-                    val contentUri =
-                        FileProvider.getUriForFile(this, getFileProvider(), getLatestApk())
-                    val intent =
-                        Intent(Intent.ACTION_VIEW).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            setDataAndType(contentUri, "application/vnd.android.package-archive")
-                        }
-                    startActivity(intent)
-                }
-                .onFailure { throwable: Throwable ->
-                    throwable.printStackTrace()
-                    ToastUtil.makeToast(R.string.app_update_failed)
-                }
+    fun installLatestApk(context: Context = App.context) {
+        val apkFile = context.getLatestApk()
+        if (!apkFile.exists() || apkFile.length() == 0L) {
+            Log.e(TAG, "installLatestApk: APK file does not exist or is empty at ${apkFile.absolutePath}")
+            ToastUtil.makeToast(R.string.app_update_failed)
+            return
         }
+
+        // On Android 8.0+ (Oreo, API 26+), check REQUEST_INSTALL_PACKAGES permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!context.packageManager.canRequestPackageInstalls()) {
+                runCatching {
+                    val settingsIntent = Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${context.packageName}")
+                    ).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(settingsIntent)
+                    ToastUtil.makeToast("Please allow FlowGrab to install apps, then tap Update again")
+                }.onFailure { e ->
+                    Log.e(TAG, "Failed to launch ACTION_MANAGE_UNKNOWN_APP_SOURCES", e)
+                }
+                return
+            }
+        }
+
+        runCatching {
+            val contentUri = FileProvider.getUriForFile(context, context.getFileProvider(), apkFile)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                setDataAndType(contentUri, "application/vnd.android.package-archive")
+            }
+            context.startActivity(intent)
+        }.onFailure { throwable ->
+            Log.e(TAG, "installLatestApk failed", throwable)
+            ToastUtil.makeToast(R.string.app_update_failed)
+        }
+    }
 
     suspend fun deleteOutdatedApk(context: Context = App.context) =
         context.runCatching {
@@ -158,85 +182,130 @@ object UpdateUtil {
         release: Release,
     ): Flow<DownloadStatus> =
         withContext(Dispatchers.IO) {
-            val apkVersion =
-                context.packageManager
-                    .getPackageArchiveInfo(context.getLatestApk().absolutePath, 0)
-                    ?.versionName
-                    .toVersion()
+            val apkFile = context.getLatestApk()
+            val targetVersion = (release.tagName ?: release.name).toVersion()
 
-            Log.d(TAG, apkVersion.toString())
+            // If the latest APK already exists and matches or exceeds the target release version, skip re-download
+            if (apkFile.exists() && apkFile.length() > 0L) {
+                val existingApkVersion =
+                    context.packageManager
+                        .getPackageArchiveInfo(apkFile.absolutePath, 0)
+                        ?.versionName
+                        .toVersion()
 
-            if (apkVersion >= release.name.toVersion()) {
-                return@withContext flow<DownloadStatus> {
-                    emit(DownloadStatus.Finished(context.getLatestApk()))
+                if (existingApkVersion != EMPTY_VERSION && existingApkVersion >= targetVersion) {
+                    return@withContext flow<DownloadStatus> {
+                        emit(DownloadStatus.Finished(apkFile))
+                    }
                 }
             }
 
-            val abiList = Build.SUPPORTED_ABIS
-            val preferredArch = abiList.firstOrNull() ?: return@withContext emptyFlow()
-
-            val targetUrl =
-                (release.assets?.find { it.name?.contains(preferredArch) == true }
-                    ?: release.assets?.find { it.name?.endsWith(".apk", ignoreCase = true) == true })
-                    ?.browserDownloadUrl ?: return@withContext emptyFlow()
-            val request = Request.Builder().url(targetUrl).build()
-            try {
-                val response = client.newCall(request).execute()
-                val responseBody = response.body
-                return@withContext responseBody.downloadFileWithProgress(context.getLatestApk())
-            } catch (e: Exception) {
-                e.printStackTrace()
+            // Find matching asset prioritizing device supported ABIs in order
+            var matchedAsset: AssetsItem? = null
+            for (abi in Build.SUPPORTED_ABIS) {
+                matchedAsset = release.assets?.find { asset ->
+                    val name = asset.name?.lowercase() ?: ""
+                    name.endsWith(".apk") && name.contains(abi.lowercase())
+                }
+                if (matchedAsset != null) break
             }
-            emptyFlow()
+
+            // Fallback to universal APK
+            if (matchedAsset == null) {
+                matchedAsset = release.assets?.find { asset ->
+                    val name = asset.name?.lowercase() ?: ""
+                    name.endsWith(".apk") && name.contains("universal")
+                }
+            }
+
+            // Fallback to any APK asset
+            if (matchedAsset == null) {
+                matchedAsset = release.assets?.find { asset ->
+                    asset.name?.endsWith(".apk", ignoreCase = true) == true
+                }
+            }
+
+            val targetUrl = matchedAsset?.browserDownloadUrl
+                ?: throw IllegalStateException("No compatible APK asset found in release")
+
+            Log.d(TAG, "Downloading release APK from $targetUrl for asset ${matchedAsset.name}")
+
+            val request = Request.Builder()
+                .url(targetUrl)
+                .header("User-Agent", "FlowGrab-Android")
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) {
+                throw IOException("Failed to download APK: HTTP ${response.code} ${response.message}")
+            }
+            val responseBody = response.body
+                ?: throw IOException("Empty response body from update download")
+
+            return@withContext responseBody.downloadFileWithProgress(apkFile)
         }
 
     private fun ResponseBody.downloadFileWithProgress(saveFile: File): Flow<DownloadStatus> =
         flow {
-                emit(DownloadStatus.Progress(0))
+            emit(DownloadStatus.Progress(0))
 
-                var deleteFile = true
+            saveFile.parentFile?.mkdirs()
+            if (saveFile.exists()) {
+                saveFile.delete()
+            }
 
-                try {
-                    byteStream().use { inputStream ->
-                        saveFile.outputStream().use { outputStream ->
-                            val totalBytes = contentLength()
-                            val data = ByteArray(8_192)
-                            var progressBytes = 0L
+            var deleteFile = true
 
-                            while (true) {
-                                val bytes = inputStream.read(data)
+            try {
+                byteStream().use { inputStream ->
+                    saveFile.outputStream().use { outputStream ->
+                        val totalBytes = contentLength()
+                        val data = ByteArray(8_192)
+                        var progressBytes = 0L
+                        var lastEmitPercent = -1
 
-                                if (bytes == -1) {
-                                    break
-                                }
-
-                                outputStream.channel
-                                outputStream.write(data, 0, bytes)
-                                progressBytes += bytes
-                                emit(
-                                    DownloadStatus.Progress(
-                                        percent = ((progressBytes * 100) / totalBytes).toInt()
-                                    )
-                                )
+                        while (true) {
+                            val bytes = inputStream.read(data)
+                            if (bytes == -1) {
+                                break
                             }
 
-                            when {
-                                progressBytes < totalBytes -> throw Exception("missing bytes")
-                                progressBytes > totalBytes -> throw Exception("too many bytes")
-                                else -> deleteFile = false
+                            outputStream.write(data, 0, bytes)
+                            progressBytes += bytes
+
+                            if (totalBytes > 0) {
+                                val percent = ((progressBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
+                                if (percent != lastEmitPercent) {
+                                    lastEmitPercent = percent
+                                    emit(DownloadStatus.Progress(percent))
+                                }
+                            } else {
+                                emit(DownloadStatus.Progress(-1))
                             }
                         }
-                    }
 
-                    emit(DownloadStatus.Finished(saveFile))
-                } finally {
-                    if (deleteFile) {
-                        saveFile.delete()
+                        outputStream.flush()
+
+                        if (totalBytes > 0 && progressBytes < totalBytes) {
+                            throw IOException("Incomplete download: received $progressBytes bytes out of $totalBytes")
+                        }
+                        if (progressBytes == 0L) {
+                            throw IOException("Downloaded APK is empty (0 bytes)")
+                        }
+
+                        deleteFile = false
                     }
                 }
+
+                emit(DownloadStatus.Finished(saveFile))
+            } finally {
+                if (deleteFile && saveFile.exists()) {
+                    saveFile.delete()
+                }
             }
-            .flowOn(Dispatchers.IO)
-            .distinctUntilChanged()
+        }
+        .flowOn(Dispatchers.IO)
+        .distinctUntilChanged()
 
     @Serializable
     data class Release(

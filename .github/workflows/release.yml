@@ -138,25 +138,64 @@ jobs:
           git tag -f "${{ steps.version_bump.outputs.tag_name }}"
           git push origin "${{ steps.version_bump.outputs.tag_name }}" --force
 
-      - name: Generate Release Notes
+      - name: Generate Dynamic Release Notes
         run: |
-          cat << 'EOF' > release_notes.md
-          ## 🎉 FlowGrab ${{ steps.version_bump.outputs.tag_name }}
+          TAG="${{ steps.version_bump.outputs.tag_name }}"
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -n 1 || true)
 
-          ### 🚀 What's New in This Version:
-          - ⚡ **Instant Cold Start**: Zero startup latency with background initialization and 0-duration splash transition.
-          - 🎨 **Modern Edge-to-Edge UI**: Removed top dead-space across navigation drawer, settings subpages, and downloads.
-          - 💾 **Persistent View & Settings**: Grid / List view mode and app preferences persist reliably across app restarts via MMKV write-through state delegates.
-          - ⏯️ **Queue Quick Actions**: 3-dot dropdown menu in downloads (Resume All, Pause All, Clear Completed, Clear Queue).
-          - 🕒 **Download Timestamps**: Exact download date & time alongside file size on media cards and details drawer.
-          - 🛡️ **YouTube Anti-Bot & SABR Bypass**: Built-in client profile spoofing (`player_client=android_creator,web,tv`) eliminates web botguard challenges and bypasses 40-70 KB/s SABR speed throttles without requiring custom browser cookies.
-          - 🚀 **High-Speed Batch Downloading**: Multi-URL batch queuing with aria2c concurrent fragment acceleration.
-          - 🔄 **In-App Auto-Updates**: In-app automated release checking with seamless per-architecture APK downloads.
-          - 📱 **Multi-Architecture Builds**: Universal, ARM64 (`arm64-v8a`), ARM32 (`armeabi-v7a`), and x86_64.
+          echo "## 🎉 FlowGrab ${TAG}" > release_notes.md
+          echo "" >> release_notes.md
+          echo "Released on $(date -u +'%B %d, %Y (%H:%M UTC)')" >> release_notes.md
+          echo "" >> release_notes.md
 
-          ### 📦 Download Assets:
-          Select the APK matching your device's architecture below (or download the **Universal** build if unsure).
-          EOF
+          echo "### 🚀 What's Changed in This Version:" >> release_notes.md
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges | grep -v "\[skip ci\]" || true)
+          else
+            COMMITS=$(git log -n 10 --pretty=format:"- %s (%h)" --no-merges | grep -v "\[skip ci\]" || true)
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            COMMITS="- Performance improvements, stability enhancements, and minor bug fixes."
+          fi
+          echo "$COMMITS" >> release_notes.md
+          echo "" >> release_notes.md
+
+          echo "### 📦 Generated APK Packages & Checksums:" >> release_notes.md
+          echo "| Package File | Architecture | Size | SHA-256 Checksum |" >> release_notes.md
+          echo "| :--- | :--- | :--- | :--- |" >> release_notes.md
+
+          for apk in app/build/outputs/apk/generic/release/*.apk; do
+            [ -f "$apk" ] || continue
+            fname=$(basename "$apk")
+            fsize=$(du -h "$apk" | awk '{print $1}')
+            fhash=$(sha256sum "$apk" | awk '{print $1}')
+            
+            arch="Universal"
+            if [[ "$fname" == *"arm64-v8a"* ]]; then
+              arch="ARM64 (64-bit)"
+            elif [[ "$fname" == *"armeabi-v7a"* ]]; then
+              arch="ARMv7 (32-bit)"
+            elif [[ "$fname" == *"x86_64"* ]]; then
+              arch="x86_64"
+            elif [[ "$fname" == *"x86"* ]]; then
+              arch="x86 (32-bit)"
+            fi
+            
+            echo "| \`$fname\` | **$arch** | $fsize | \`$fhash\` |" >> release_notes.md
+          done
+          echo "" >> release_notes.md
+
+          echo "### 💡 Which APK Should I Download?" >> release_notes.md
+          echo "- **ARM64 (\`arm64-v8a\`)**: Recommended for virtually all modern Android phones and tablets." >> release_notes.md
+          echo "- **ARMv7 (\`armeabi-v7a\`)**: For older 32-bit Android phones." >> release_notes.md
+          echo "- **Universal**: Compatible with all devices (combines all native ABIs). Choose this if you are unsure." >> release_notes.md
+          echo "- **x86_64 / x86**: For PC Android emulators, ChromeOS devices, and virtual testing." >> release_notes.md
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "" >> release_notes.md
+            echo "**Full Changelog**: https://github.com/HrshD1eux/flowgrab-android/compare/${PREV_TAG}...${TAG}" >> release_notes.md
+          fi
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -167,7 +206,7 @@ jobs:
           draft: false
           prerelease: false
           make_latest: true
-          generate_release_notes: true
+          generate_release_notes: false
           fail_on_unmatched_files: true
           files: |
             app/build/outputs/apk/generic/release/*.apk

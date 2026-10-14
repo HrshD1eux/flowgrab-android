@@ -81,18 +81,16 @@ fun AppUpdater() {
                 showUpdateDialog = false
                 updateJob?.cancel()
             },
-            title = release.name.toString(),
+            title = (release.name?.takeIf { it.isNotBlank() } ?: release.tagName ?: "Update").toString(),
             onConfirmUpdate = {
                 updateJob =
                     scope.launch(Dispatchers.IO) {
                         runCatching {
-                                UpdateUtil.downloadApk(release = release).collect { downloadStatus
+                                UpdateUtil.downloadApk(context = context, release = release).collect { downloadStatus
                                     ->
                                     currentDownloadStatus = downloadStatus
                                     if (downloadStatus is UpdateUtil.DownloadStatus.Finished) {
-                                        launcher.launch(
-                                            Manifest.permission.REQUEST_INSTALL_PACKAGES
-                                        )
+                                        UpdateUtil.installLatestApk(context)
                                     }
                                 }
                             }

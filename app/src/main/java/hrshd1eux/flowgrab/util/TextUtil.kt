@@ -17,7 +17,13 @@ import kotlinx.coroutines.launch
 
 object ToastUtil {
     fun makeToast(text: String) {
-        Toast.makeText(context.applicationContext, text, Toast.LENGTH_SHORT).show()
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            Toast.makeText(context.applicationContext, text, Toast.LENGTH_SHORT).show()
+        } else {
+            applicationScope.launch(Dispatchers.Main) {
+                Toast.makeText(context.applicationContext, text, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     fun makeToastSuspend(text: String) {
@@ -25,8 +31,13 @@ object ToastUtil {
     }
 
     fun makeToast(stringId: Int) {
-        Toast.makeText(context.applicationContext, context.getString(stringId), Toast.LENGTH_SHORT)
-            .show()
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            Toast.makeText(context.applicationContext, context.getString(stringId), Toast.LENGTH_SHORT).show()
+        } else {
+            applicationScope.launch(Dispatchers.Main) {
+                Toast.makeText(context.applicationContext, context.getString(stringId), Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }
 
