@@ -31,6 +31,7 @@ import hrshd1eux.flowgrab.ui.theme.SealTheme
 import hrshd1eux.flowgrab.util.DownloadUtil
 import hrshd1eux.flowgrab.util.PreferenceUtil
 import hrshd1eux.flowgrab.util.matchUrlFromSharedText
+import hrshd1eux.flowgrab.util.sanitizeUrl
 import hrshd1eux.flowgrab.util.setLanguage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -46,7 +47,7 @@ class QuickDownloadActivity : ComponentActivity() {
 
         return when (intent.action) {
             Intent.ACTION_VIEW -> {
-                intent.dataString
+                intent.dataString?.let { sanitizeUrl(it) }
             }
 
             Intent.ACTION_SEND -> {
@@ -81,12 +82,6 @@ class QuickDownloadActivity : ComponentActivity() {
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
             )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-            } else {
-                @Suppress("DEPRECATION")
-                setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT)
-            }
         }
 
         if (Build.VERSION.SDK_INT < 33) {

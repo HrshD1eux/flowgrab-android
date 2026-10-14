@@ -140,6 +140,9 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                         }
                     }
                     .onFailure { th ->
+                        if (th is kotlinx.coroutines.CancellationException || th is YoutubeDL.CanceledException) {
+                            return@launch
+                        }
                         mSheetStateFlow.update { SheetState.Error(action = action, throwable = th) }
                     }
             }
@@ -165,6 +168,9 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
                         }
                     }
                     .onFailure { th ->
+                        if (th is kotlinx.coroutines.CancellationException || th is YoutubeDL.CanceledException) {
+                            return@launch
+                        }
                         withContext(Dispatchers.Main) {
                             mSheetStateFlow.update { SheetState.Error(action, throwable = th) }
                         }
@@ -220,11 +226,9 @@ class DownloadDialogViewModel(private val downloader: DownloaderV2) : ViewModel(
     private fun cancel(): Boolean {
         return when (val state = sheetState) {
             is SheetState.Loading -> {
-                val res = YoutubeDL.destroyProcessById(id = state.taskKey)
-                if (res) {
-                    state.job.cancel()
-                }
-                return res
+                runCatching { YoutubeDL.destroyProcessById(id = state.taskKey) }
+                state.job.cancel()
+                true
             }
             else -> false
         }

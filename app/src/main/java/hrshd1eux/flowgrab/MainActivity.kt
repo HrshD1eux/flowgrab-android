@@ -15,6 +15,7 @@ import hrshd1eux.flowgrab.ui.page.downloadv2.configure.DownloadDialogViewModel
 import hrshd1eux.flowgrab.ui.theme.SealTheme
 import hrshd1eux.flowgrab.util.PreferenceUtil
 import hrshd1eux.flowgrab.util.matchUrlFromSharedText
+import hrshd1eux.flowgrab.util.sanitizeUrl
 import hrshd1eux.flowgrab.util.setLanguage
 import kotlinx.coroutines.runBlocking
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -68,7 +69,7 @@ class MainActivity : AppCompatActivity() {
 
         return when (intent.action) {
             Intent.ACTION_VIEW -> {
-                intent.dataString
+                intent.dataString?.let { sanitizeUrl(it) }
             }
 
             Intent.ACTION_SEND -> {

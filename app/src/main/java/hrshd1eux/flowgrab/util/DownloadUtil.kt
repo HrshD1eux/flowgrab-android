@@ -208,6 +208,11 @@ object DownloadUtil {
             val request = buildRequest()
             var res = getVideoInfo(request, taskKey)
 
+            val exception = res.exceptionOrNull()
+            if (exception is YoutubeDL.CanceledException || exception is kotlinx.coroutines.CancellationException) {
+                return res
+            }
+
             // If primary YouTube extraction fails (e.g., player client blocked), attempt fallback client
             if (res.isFailure && url.contains("youtu", ignoreCase = true)) {
                 Log.w(TAG, "Primary extractor attempt failed for $url, retrying with visionos/mweb client fallback...")
@@ -484,6 +489,7 @@ object DownloadUtil {
         autoTranslatedSubtitles: Boolean = false,
     ): YoutubeDLRequest = apply {
         val args = mutableListOf<String>()
+        args.add("player_client=android,ios,web")
         if (autoSubtitle && !autoTranslatedSubtitles) {
             args.add("skip=translated_subs")
         }

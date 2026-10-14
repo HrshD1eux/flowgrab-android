@@ -122,6 +122,50 @@ fun getErrorReport(th: Throwable, url: String): String =
 fun matchUrlFromString(s: String, isMatchingMultiLink: Boolean = false): String =
     findURLsFromString(s, !isMatchingMultiLink).joinToString(separator = "\n")
 
+fun sanitizeUrl(rawUrl: String): String {
+    return try {
+        val trimmed = rawUrl.trim()
+        val uri = android.net.Uri.parse(trimmed)
+        val host = uri.host?.lowercase() ?: return trimmed
+        val isYouTube = host.endsWith("youtube.com") || host == "youtu.be"
+
+        val queryParamNames = uri.queryParameterNames
+        if (queryParamNames.isEmpty()) {
+            return trimmed
+        }
+
+        val trackingParams = setOf(
+            "si", "feature", "pp", "source_ve_path",
+            "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+            "fbclid", "igshid"
+        )
+
+        val newUriBuilder = uri.buildUpon().clearQuery()
+        for (key in queryParamNames) {
+            val lowerKey = key.lowercase()
+            if (lowerKey in trackingParams) continue
+
+            // Remove synthetic radio / autoplay mix playlists attached to single video shares
+            if (isYouTube && lowerKey == "list") {
+                val listVal = uri.getQueryParameter(key).orEmpty()
+                if (listVal.startsWith("RD", ignoreCase = true) || listVal.startsWith("UL", ignoreCase = true)) {
+                    continue
+                }
+            }
+            if (isYouTube && (lowerKey == "start_radio" || lowerKey == "rv")) {
+                continue
+            }
+
+            for (value in uri.getQueryParameters(key)) {
+                newUriBuilder.appendQueryParameter(key, value)
+            }
+        }
+        newUriBuilder.build().toString()
+    } catch (e: Exception) {
+        rawUrl.trim()
+    }
+}
+
 fun findURLsFromString(input: String, firstMatchOnly: Boolean = false): List<String> {
     val result = mutableListOf<String>()
     val pattern = Pattern.compile(URL_REGEX_PATTERN)
@@ -129,10 +173,10 @@ fun findURLsFromString(input: String, firstMatchOnly: Boolean = false): List<Str
     with(pattern.matcher(input)) {
         if (!firstMatchOnly) {
             while (find()) {
-                result += group()
+                result += sanitizeUrl(group())
             }
         } else {
-            if (find()) result += (group())
+            if (find()) result += sanitizeUrl(group())
         }
     }
     return result
