@@ -182,6 +182,12 @@
     <string name="app_update_failed">Failed to update to the latest version</string>
     <string name="update">Update</string>
     <string name="install">Install</string>
+    <string name="update_ready_title">Update ready to install</string>
+    <string name="update_ready_desc">FlowGrab %1$s is downloaded and ready to install. Tap Install to complete update.</string>
+    <string name="downloading_update">Downloading FlowGrab %1$s…</string>
+    <string name="tap_to_install_update">Tap to install FlowGrab %1$s</string>
+    <string name="connecting">Connecting…</string>
+    <string name="later">Later</string>
     <string name="aria2" translatable="false">Aria2</string>
     <string name="aria2_desc">Use aria2c as the external downloader</string>
     <string name="cookies">Cookies</string>

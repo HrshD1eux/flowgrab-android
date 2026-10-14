@@ -184,6 +184,52 @@ object NotificationUtil {
         notificationManager.cancel(notificationId)
     }
 
+    const val UPDATE_NOTIFICATION_ID = 999
+
+    fun notifyUpdateProgress(version: String, progress: Int) {
+        val now = System.currentTimeMillis()
+        val lastTime = lastNotificationTimeMap[UPDATE_NOTIFICATION_ID] ?: 0L
+        if (progress in 1..99 && now - lastTime < NOTIFICATION_THROTTLE_MS) {
+            return
+        }
+        lastNotificationTimeMap[UPDATE_NOTIFICATION_ID] = now
+
+        val progressText = if (progress >= 0) "$progress%" else context.getString(R.string.downloading_indicator_text)
+        val title = context.getString(R.string.downloading_update, version)
+
+        val builder =
+            NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_flowgrab)
+                .setContentTitle(title)
+                .setContentText(progressText)
+                .setProgress(PROGRESS_MAX, if (progress >= 0) progress else 0, progress < 0)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+
+        notificationManager.notify(UPDATE_NOTIFICATION_ID, builder.build())
+    }
+
+    fun notifyUpdateFinished(version: String, intent: PendingIntent?) {
+        lastNotificationTimeMap.remove(UPDATE_NOTIFICATION_ID)
+        notificationManager.cancel(UPDATE_NOTIFICATION_ID)
+
+        val builder =
+            NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_flowgrab)
+                .setContentTitle(context.getString(R.string.update_ready_title))
+                .setContentText(context.getString(R.string.tap_to_install_update, version))
+                .setOngoing(false)
+                .setAutoCancel(true)
+
+        intent?.let { builder.setContentIntent(it) }
+        notificationManager.notify(UPDATE_NOTIFICATION_ID, builder.build())
+    }
+
+    fun cancelUpdateNotification() {
+        lastNotificationTimeMap.remove(UPDATE_NOTIFICATION_ID)
+        notificationManager.cancel(UPDATE_NOTIFICATION_ID)
+    }
+
     fun notifyError(
         title: String,
         textId: Int = R.string.download_error_msg,

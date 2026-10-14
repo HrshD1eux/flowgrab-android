@@ -32,6 +32,10 @@ class MainActivity : AppCompatActivity() {
         }
         enableEdgeToEdge()
 
+        if (intent?.getBooleanExtra("EXTRA_INSTALL_UPDATE", false) == true) {
+            hrshd1eux.flowgrab.util.UpdateUtil.installLatestApk(this)
+        }
+
         setContent {
             KoinContext {
                 val windowSizeClass = calculateWindowSizeClass(this)
@@ -49,6 +53,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (intent.getBooleanExtra("EXTRA_INSTALL_UPDATE", false)) {
+            hrshd1eux.flowgrab.util.UpdateUtil.installLatestApk(this)
+            return
+        }
         val url = intent.getSharedURL()
         if (url != null) {
             dialogViewModel.postAction(DownloadDialogViewModel.Action.ShowSheet(listOf(url)))

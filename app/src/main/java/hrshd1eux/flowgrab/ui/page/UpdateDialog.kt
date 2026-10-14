@@ -35,35 +35,17 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun UpdateDialog(onDismissRequest: () -> Unit, release: UpdateUtil.Release) {
-    var currentDownloadStatus by remember {
-        mutableStateOf(UpdateUtil.DownloadStatus.NotYet as UpdateUtil.DownloadStatus)
-    }
     val context = LocalContext.current
+    val downloadStatus by UpdateUtil.downloadStatus.collectAsStateWithLifecycle()
 
-    val scope = rememberCoroutineScope()
     UpdateDialogImpl(
         onDismissRequest = onDismissRequest,
         title = (release.name?.takeIf { it.isNotBlank() } ?: release.tagName ?: "Update").toString(),
         onConfirmUpdate = {
-            scope.launch(Dispatchers.IO) {
-                runCatching {
-                        UpdateUtil.downloadApk(context = context, release = release).collect { downloadStatus ->
-                            currentDownloadStatus = downloadStatus
-                            if (downloadStatus is UpdateUtil.DownloadStatus.Finished) {
-                                UpdateUtil.installLatestApk(context)
-                            }
-                        }
-                    }
-                    .onFailure {
-                        it.printStackTrace()
-                        currentDownloadStatus = UpdateUtil.DownloadStatus.NotYet
-                        ToastUtil.makeToastSuspend(context.getString(R.string.app_update_failed))
-                        return@launch
-                    }
-            }
+            UpdateUtil.startBackgroundDownload(context = context, release = release)
         },
         releaseNote = release.body.orEmpty(),
-        downloadStatus = currentDownloadStatus,
+        downloadStatus = downloadStatus,
     )
 }
 
@@ -77,7 +59,7 @@ fun UpdateDialogImpl(
 ) {
     val context = LocalContext.current
     AlertDialog(
-        onDismissRequest = {},
+        onDismissRequest = onDismissRequest,
         title = { Text(title) },
         icon = { Icon(Icons.Outlined.NewReleases, null) },
         confirmButton = {
@@ -85,13 +67,14 @@ fun UpdateDialogImpl(
                 onClick = {
                     if (downloadStatus is UpdateUtil.DownloadStatus.Finished) {
                         UpdateUtil.installLatestApk(context)
-                    } else if (downloadStatus !is UpdateUtil.DownloadStatus.Progress) {
+                    } else if (downloadStatus !is UpdateUtil.DownloadStatus.Progress && downloadStatus !is UpdateUtil.DownloadStatus.Connecting) {
                         onConfirmUpdate()
                     }
                 }
             ) {
                 Text(
                     when (downloadStatus) {
+                        is UpdateUtil.DownloadStatus.Connecting -> stringResource(R.string.connecting)
                         is UpdateUtil.DownloadStatus.Progress -> {
                             if (downloadStatus.percent >= 0) "${downloadStatus.percent} %"
                             else stringResource(R.string.downloading_indicator_text)
