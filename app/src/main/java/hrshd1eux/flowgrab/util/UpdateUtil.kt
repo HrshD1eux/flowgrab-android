@@ -70,8 +70,8 @@ object UpdateUtil {
                 maxRequestsPerHost = 16
             })
             .connectionPool(ConnectionPool(8, 2, TimeUnit.MINUTES))
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .followRedirects(true)
@@ -470,49 +470,52 @@ object UpdateUtil {
             NotificationUtil.notifyUpdateProgress(versionName, 0)
             send(DownloadStatus.Progress(0))
 
-            // 3. Probe file size, Range header support, and resolve direct CDN URL
-            var contentLength = -1L
-            var supportsRange = false
+            // 3. Fast-path: GitHub API already returns the exact asset size, eliminating redundant network probe delays
+            var contentLength = matchedAsset.size ?: -1L
+            var supportsRange = (contentLength > 4 * 1024 * 1024)
             var directUrl = targetUrl
 
-            try {
-                val probeReq = Request.Builder()
-                    .url(targetUrl)
-                    .header("User-Agent", "FlowGrab-Android")
-                    .header("Range", "bytes=0-0")
-                    .build()
-                client.newCall(probeReq).execute().use { probeResp ->
-                    directUrl = probeResp.request.url.toString()
-                    if (probeResp.code == 206) {
-                        supportsRange = true
-                        val contentRange = probeResp.header("Content-Range")
-                        contentRange?.substringAfterLast('/')?.toLongOrNull()?.let {
-                            contentLength = it
-                        }
-                    } else if (probeResp.isSuccessful) {
-                        val acceptRanges = probeResp.header("Accept-Ranges")
-                        supportsRange = acceptRanges?.contains("bytes", ignoreCase = true) == true
-                        contentLength = probeResp.header("Content-Length")?.toLongOrNull() ?: -1L
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Range probe failed, attempting HEAD request", e)
+            // Only probe over network if GitHub API did not include size
+            if (contentLength <= 0L) {
                 try {
-                    val headReq = Request.Builder()
+                    val probeReq = Request.Builder()
                         .url(targetUrl)
                         .header("User-Agent", "FlowGrab-Android")
-                        .head()
+                        .header("Range", "bytes=0-0")
                         .build()
-                    client.newCall(headReq).execute().use { headResp ->
-                        directUrl = headResp.request.url.toString()
-                        if (headResp.isSuccessful) {
-                            contentLength = headResp.header("Content-Length")?.toLongOrNull() ?: -1L
-                            val acceptRanges = headResp.header("Accept-Ranges")
+                    client.newCall(probeReq).execute().use { probeResp ->
+                        directUrl = probeResp.request.url.toString()
+                        if (probeResp.code == 206) {
+                            supportsRange = true
+                            val contentRange = probeResp.header("Content-Range")
+                            contentRange?.substringAfterLast('/')?.toLongOrNull()?.let {
+                                contentLength = it
+                            }
+                        } else if (probeResp.isSuccessful) {
+                            val acceptRanges = probeResp.header("Accept-Ranges")
                             supportsRange = acceptRanges?.contains("bytes", ignoreCase = true) == true
+                            contentLength = probeResp.header("Content-Length")?.toLongOrNull() ?: -1L
                         }
                     }
-                } catch (headEx: Exception) {
-                    Log.w(TAG, "HEAD probe failed as well", headEx)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Range probe failed, attempting HEAD request", e)
+                    try {
+                        val headReq = Request.Builder()
+                            .url(targetUrl)
+                            .header("User-Agent", "FlowGrab-Android")
+                            .head()
+                            .build()
+                        client.newCall(headReq).execute().use { headResp ->
+                            directUrl = headResp.request.url.toString()
+                            if (headResp.isSuccessful) {
+                                contentLength = headResp.header("Content-Length")?.toLongOrNull() ?: -1L
+                                val acceptRanges = headResp.header("Accept-Ranges")
+                                supportsRange = acceptRanges?.contains("bytes", ignoreCase = true) == true
+                            }
+                        }
+                    } catch (headEx: Exception) {
+                        Log.w(TAG, "HEAD probe failed as well", headEx)
+                    }
                 }
             }
 
