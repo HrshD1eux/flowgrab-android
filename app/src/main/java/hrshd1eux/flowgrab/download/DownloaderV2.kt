@@ -196,6 +196,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
 
     private fun autoHealAndRetry(task: Task, action: Task.RestartableAction) {
         if (!autoHealedTaskIds.add(task.id)) return
+        if (task.downloadState is DownloadState.Canceled) return
         Log.i(TAG, "Extractor or bot issue detected for task ${task.id}. Attempting self-healing OTA update...")
         scope.launch(Dispatchers.IO) {
             val updateSuccess = runCatching {
@@ -356,10 +357,12 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                     }
                     .onFailure { throwable ->
                         Log.e(TAG, "Task ${task.id} (${task.url}) fetchInfo failed", throwable)
-                        if (task.downloadState is DownloadState.Canceled ||
+                        val isCancelled = task.downloadState is DownloadState.Canceled ||
                             throwable is YoutubeDL.CanceledException ||
-                            throwable is kotlinx.coroutines.CancellationException
-                        ) {
+                            throwable is kotlinx.coroutines.CancellationException ||
+                            throwable.message?.contains("destroy", ignoreCase = true) == true ||
+                            throwable.message?.contains("cancel", ignoreCase = true) == true
+                        if (isCancelled) {
                             return@onFailure
                         }
                         if (throwable.isExtractorOrBotIssue() && !autoHealedTaskIds.contains(task.id)) {
@@ -459,10 +462,12 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                     }
                     .onFailure { throwable ->
                         Log.e(TAG, "Task ${id} (${url}) download failed", throwable)
-                        if (downloadState is DownloadState.Canceled ||
+                        val isCancelled = downloadState is DownloadState.Canceled ||
                             throwable is YoutubeDL.CanceledException ||
-                            throwable is kotlinx.coroutines.CancellationException
-                        ) {
+                            throwable is kotlinx.coroutines.CancellationException ||
+                            throwable.message?.contains("destroy", ignoreCase = true) == true ||
+                            throwable.message?.contains("cancel", ignoreCase = true) == true
+                        if (isCancelled) {
                             return@onFailure
                         }
                         if (throwable.isExtractorOrBotIssue() && !autoHealedTaskIds.contains(id)) {

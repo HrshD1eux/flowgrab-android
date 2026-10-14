@@ -109,14 +109,31 @@ object FileUtil {
         title: String,
         downloadDir: String,
         isAudioOnly: Boolean = false,
+        videoId: String = "",
     ): List<String> {
         val dir = File(downloadDir)
+        if (!dir.exists()) return emptyList()
+
+        val id = videoId.ifEmpty {
+            Regex("\\[([a-zA-Z0-9_-]{11})\\]").find(title)?.groupValues?.get(1).orEmpty()
+        }
+        val sanitizedTitle = title.replace(Regex("[\\\\/:*?\"<>|]"), " ").trim()
+        val titleWords = sanitizedTitle.split(Regex("\\s+")).filter { it.length > 2 }
+
+        fun matchesMedia(fileName: String): Boolean {
+            if (id.isNotEmpty() && fileName.contains(id, ignoreCase = true)) return true
+            if (title.isNotEmpty() && fileName.contains(title, ignoreCase = true)) return true
+            if (sanitizedTitle.isNotEmpty() && fileName.contains(sanitizedTitle, ignoreCase = true)) return true
+            if (titleWords.isNotEmpty() && titleWords.count { fileName.contains(it, ignoreCase = true) } >= titleWords.size.coerceAtMost(2)) return true
+            return false
+        }
+
         // Clean up any dangling intermediate video files produced during audio extraction
         if (isAudioOnly) {
             dir.listFiles()
                 ?.filter {
                     it.isFile &&
-                        it.name.contains(title) &&
+                        matchesMedia(it.name) &&
                         it.name.contains(Regex(VIDEO_REGEX, RegexOption.IGNORE_CASE))
                 }
                 ?.forEach { videoFile ->
@@ -128,7 +145,7 @@ object FileUtil {
             dir.walkTopDown()
                 .filter { file ->
                     file.isFile &&
-                        file.name.contains(title) &&
+                        matchesMedia(file.name) &&
                         !file.name.contains(Regex(THUMBNAIL_REGEX, RegexOption.IGNORE_CASE)) &&
                         !file.name.contains(Regex(SUBTITLE_REGEX, RegexOption.IGNORE_CASE)) &&
                         if (isAudioOnly) {
@@ -137,6 +154,7 @@ object FileUtil {
                             file.name.contains(Regex(VIDEO_REGEX, RegexOption.IGNORE_CASE))
                         }
                 }
+                .sortedByDescending { it.lastModified() }
                 .map { it.absolutePath }
                 .toList()
 
@@ -147,10 +165,11 @@ object FileUtil {
                 dir.walkTopDown()
                     .filter { file ->
                         file.isFile &&
-                            file.name.contains(title) &&
+                            matchesMedia(file.name) &&
                             !file.name.contains(Regex(THUMBNAIL_REGEX, RegexOption.IGNORE_CASE)) &&
                             !file.name.contains(Regex(SUBTITLE_REGEX, RegexOption.IGNORE_CASE))
                     }
+                    .sortedByDescending { it.lastModified() }
                     .map { it.absolutePath }
                     .toList()
             }

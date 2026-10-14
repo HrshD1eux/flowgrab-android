@@ -209,18 +209,22 @@ object DownloadUtil {
             var res = getVideoInfo(request, taskKey)
 
             val exception = res.exceptionOrNull()
-            if (exception is YoutubeDL.CanceledException || exception is kotlinx.coroutines.CancellationException) {
+            if (exception is YoutubeDL.CanceledException ||
+                exception is kotlinx.coroutines.CancellationException ||
+                exception?.message?.contains("destroy", ignoreCase = true) == true ||
+                exception?.message?.contains("cancel", ignoreCase = true) == true
+            ) {
                 return res
             }
 
             // If primary YouTube extraction fails (e.g., player client blocked), attempt fallback client
             if (res.isFailure && url.contains("youtu", ignoreCase = true)) {
-                Log.w(TAG, "Primary extractor attempt failed for $url, retrying with visionos/mweb client fallback...")
+                Log.w(TAG, "Primary extractor attempt failed for $url, retrying with fallback client...")
                 val fallbackArgs =
                     if (autoSubtitle && !autoTranslatedSubtitles) {
-                        "player_client=visionos,mweb;skip=translated_subs"
+                        "player_client=tv_embedded,web;skip=translated_subs"
                     } else {
-                        "player_client=visionos,mweb"
+                        "player_client=tv_embedded,web"
                     }
                 val fallbackRequest = buildRequest(fallbackArgs)
                 val fallbackRes = getVideoInfo(fallbackRequest, taskKey)
@@ -489,7 +493,7 @@ object DownloadUtil {
         autoTranslatedSubtitles: Boolean = false,
     ): YoutubeDLRequest = apply {
         val args = mutableListOf<String>()
-        args.add("player_client=android,ios,web")
+        args.add("player_client=visionos,web")
         if (autoSubtitle && !autoTranslatedSubtitles) {
             args.add("skip=translated_subs")
         }
@@ -565,6 +569,7 @@ object DownloadUtil {
                 }
                 if (embedThumbnail) {
                     addOption("--embed-thumbnail")
+                    addOption("--convert-thumbnails", "jpg")
                 }
                 if (videoClips.isEmpty()) addOption("--embed-chapters")
             }
@@ -976,6 +981,7 @@ object DownloadUtil {
                         title = fileName,
                         downloadDir = downloadPath,
                         isAudioOnly = isAudio,
+                        videoId = videoInfo.id,
                     )
                     .run {
                         if (privateMode) Result.success(emptyList())

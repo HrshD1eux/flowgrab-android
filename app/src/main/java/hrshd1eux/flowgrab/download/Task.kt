@@ -145,6 +145,7 @@ data class Task(
                 val formats =
                     info.requestedFormats
                         ?: info.requestedDownloads?.map { it.toFormat() }
+                        ?: info.formats
                         ?: emptyList()
 
                 val videoFormats = formats.filter { it.containsVideo() }
@@ -169,10 +170,7 @@ data class Task(
                             (bitrate * 1000.0 / 8.0) * duration
                         } else null
 
-                    calcSize ?: (if (duration > 0.0) (16_000.0 * duration) else null)
-                             ?: info.fileSize
-                             ?: info.fileSizeApprox
-                             ?: .0
+                    calcSize ?: (if (duration > 0.0) (16_000.0 * duration) else 4_500_000.0)
                 } else {
                     info.fileSize ?: info.fileSizeApprox ?: .0
                 }
