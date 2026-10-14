@@ -643,6 +643,7 @@ object DownloadUtil {
         this.apply {
             with(preferences) {
                 addOption("-x")
+                addOption("--no-keep-video")
                 if (downloadSubtitle) {
                     addOption("--write-subs")
 
@@ -662,12 +663,12 @@ object DownloadUtil {
                 }
                 applyClientExtractorArgs(autoSubtitle, autoTranslatedSubtitles)
                 if (formatIdString.isNotEmpty()) {
-                    addOption("-f", "$formatIdString/ba/b")
+                    addOption("-f", "$formatIdString/ba/ba*")
                     if (mergeAudioStream) {
                         addOption("--audio-multistreams")
                     }
                 } else if (convertAudio) {
-                    addOption("-f", "ba/b")
+                    addOption("-f", "ba/ba*")
                     when (audioConvertFormat) {
                         CONVERT_MP3 -> {
                             addOption("--audio-format", "mp3")
@@ -695,7 +696,7 @@ object DownloadUtil {
                         }
                     }
                 } else {
-                    addOption("-f", "ba/b")
+                    addOption("-f", "ba/ba*")
                     applyFormatSorter(preferences, toAudioFormatSorter())
                 }
 
@@ -948,10 +949,12 @@ object DownloadUtil {
                 }
 
             Log.d(TAG, "onFinishDownloading: $fileName")
+            val isAudio = extractAudio || (videoInfo.vcodec == "none")
             if (sdcard) {
                 moveFilesToSdcard(
                         sdcardUri = sdcardUri,
                         tempPath = context.getSdcardTempDir(videoInfo.id),
+                        isAudioOnly = isAudio,
                     )
                     .onSuccess {
                         if (privateMode) {
@@ -966,6 +969,7 @@ object DownloadUtil {
                 FileUtil.scanFileToMediaLibraryPostDownload(
                         title = fileName,
                         downloadDir = downloadPath,
+                        isAudioOnly = isAudio,
                     )
                     .run {
                         if (privateMode) Result.success(emptyList())

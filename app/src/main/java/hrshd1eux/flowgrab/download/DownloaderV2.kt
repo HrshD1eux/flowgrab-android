@@ -193,7 +193,8 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
             }.isSuccess
             withContext(Dispatchers.Main) {
                 if (updateSuccess) {
-                    task.restartImpl()
+                    ToastUtil.makeToastSuspend("Engine updated, retrying...")
+                    task.restartImpl(action)
                 } else {
                     task.downloadState = Error(
                         throwable = Exception("Download failed: please check network connection or retry"),
@@ -476,23 +477,24 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
         return true
     }
 
-    private fun Task.restartImpl() {
-        when (val preState = downloadState) {
-            is DownloadState.Restartable -> {
-                downloadState =
-                    if (type is TypeInfo.CustomCommand) {
-                        Idle
-                    } else {
-                        when (preState.action) {
-                            Download -> ReadyWithInfo
-                            FetchInfo -> Idle
-                        }
-                    }
-            }
-            else -> {
-                throw IllegalStateException()
-            }
+    private fun Task.restartImpl(targetAction: Task.RestartableAction? = null) {
+        val action = targetAction ?: when (val preState = downloadState) {
+            is DownloadState.Restartable -> preState.action
+            is FetchingInfo -> FetchInfo
+            is Running -> Download
+            is ReadyWithInfo -> Download
+            is Idle -> FetchInfo
+            else -> if (info != null) Download else FetchInfo
         }
+        downloadState =
+            if (type is TypeInfo.CustomCommand) {
+                Idle
+            } else {
+                when (action) {
+                    Download -> if (info != null) ReadyWithInfo else Idle
+                    FetchInfo -> Idle
+                }
+            }
     }
 
     /**

@@ -17,8 +17,9 @@ import hrshd1eux.flowgrab.R
 import java.io.File
 import okhttp3.internal.closeQuietly
 
-const val AUDIO_REGEX = "(mp3|aac|opus|m4a)$"
-const val THUMBNAIL_REGEX = "\\.(jpg|png)$"
+const val AUDIO_REGEX = "\\.(mp3|aac|opus|m4a|flac|wav|ogg)$"
+const val VIDEO_REGEX = "\\.(mp4|mkv|webm|avi|mov|flv|3gp)$"
+const val THUMBNAIL_REGEX = "\\.(jpg|png|webp)$"
 const val SUBTITLE_REGEX = "\\.(lrc|vtt|srt|ass|json3|srv.|ttml)$"
 private const val PRIVATE_DIRECTORY_SUFFIX = ".FlowGrab"
 
@@ -104,18 +105,59 @@ object FileUtil {
         }
 
     @CheckResult
-    fun scanFileToMediaLibraryPostDownload(title: String, downloadDir: String): List<String> =
-        File(downloadDir)
-            .walkTopDown()
-            .filter { it.isFile && it.absolutePath.contains(title) }
-            .map { it.absolutePath }
-            .toMutableList()
-            .apply {
-                MediaScannerConnection.scanFile(context, this.toList().toTypedArray(), null, null)
-                removeAll {
-                    it.contains(Regex(THUMBNAIL_REGEX)) || it.contains(Regex(SUBTITLE_REGEX))
+    fun scanFileToMediaLibraryPostDownload(
+        title: String,
+        downloadDir: String,
+        isAudioOnly: Boolean = false,
+    ): List<String> {
+        val dir = File(downloadDir)
+        // Clean up any dangling intermediate video files produced during audio extraction
+        if (isAudioOnly) {
+            dir.listFiles()
+                ?.filter {
+                    it.isFile &&
+                        it.name.contains(title) &&
+                        it.name.contains(Regex(VIDEO_REGEX, RegexOption.IGNORE_CASE))
                 }
+                ?.forEach { videoFile ->
+                    runCatching { videoFile.delete() }
+                }
+        }
+
+        val matchingFiles =
+            dir.walkTopDown()
+                .filter { file ->
+                    file.isFile &&
+                        file.name.contains(title) &&
+                        !file.name.contains(Regex(THUMBNAIL_REGEX, RegexOption.IGNORE_CASE)) &&
+                        !file.name.contains(Regex(SUBTITLE_REGEX, RegexOption.IGNORE_CASE)) &&
+                        if (isAudioOnly) {
+                            file.name.contains(Regex(AUDIO_REGEX, RegexOption.IGNORE_CASE))
+                        } else {
+                            file.name.contains(Regex(VIDEO_REGEX, RegexOption.IGNORE_CASE))
+                        }
+                }
+                .map { it.absolutePath }
+                .toList()
+
+        val finalFiles =
+            if (matchingFiles.isNotEmpty()) {
+                matchingFiles
+            } else {
+                dir.walkTopDown()
+                    .filter { file ->
+                        file.isFile &&
+                            file.name.contains(title) &&
+                            !file.name.contains(Regex(THUMBNAIL_REGEX, RegexOption.IGNORE_CASE)) &&
+                            !file.name.contains(Regex(SUBTITLE_REGEX, RegexOption.IGNORE_CASE))
+                    }
+                    .map { it.absolutePath }
+                    .toList()
             }
+
+        MediaScannerConnection.scanFile(context, finalFiles.toTypedArray(), null, null)
+        return finalFiles
+    }
 
     fun scanDownloadDirectoryToMediaLibrary(downloadDir: String) =
         File(downloadDir)
@@ -127,7 +169,11 @@ object FileUtil {
             }
 
     @CheckResult
-    fun moveFilesToSdcard(tempPath: File, sdcardUri: String): Result<List<String>> {
+    fun moveFilesToSdcard(
+        tempPath: File,
+        sdcardUri: String,
+        isAudioOnly: Boolean = false,
+    ): Result<List<String>> {
         val uriList = mutableListOf<String>()
         val destDir =
             Uri.parse(sdcardUri).run {
@@ -140,6 +186,10 @@ object FileUtil {
             tempPath.runCatching {
                 walkTopDown().forEach {
                     if (it.isDirectory) return@forEach
+                    if (isAudioOnly && it.name.contains(Regex(VIDEO_REGEX, RegexOption.IGNORE_CASE))) {
+                        // Skip and discard intermediate video file
+                        return@forEach
+                    }
                     val mimeType =
                         MimeTypeMap.getSingleton().getMimeTypeFromExtension(it.extension) ?: "*/*"
 
