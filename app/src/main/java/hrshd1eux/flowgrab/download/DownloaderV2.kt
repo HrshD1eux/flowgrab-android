@@ -186,12 +186,19 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
         if (!autoHealedTaskIds.add(task.id)) return
         Log.i(TAG, "Extractor or bot issue detected for task ${task.id}. Attempting self-healing OTA update...")
         scope.launch(Dispatchers.IO) {
-            runCatching {
-                ToastUtil.makeToastSuspend("Self-healing: updating yt-dlp core...")
+            val updateSuccess = runCatching {
+                ToastUtil.makeToastSuspend("Updating download engine...")
                 UpdateUtil.updateYtDlp()
-            }
+            }.isSuccess
             withContext(Dispatchers.Main) {
-                task.restartImpl()
+                if (updateSuccess) {
+                    task.restartImpl()
+                } else {
+                    task.downloadState = Error(
+                        throwable = Exception("Download failed: please check network connection or retry"),
+                        action = action,
+                    )
+                }
             }
         }
     }
@@ -333,7 +340,6 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                             return@onFailure
                         }
                         if (throwable.isExtractorOrBotIssue() && !autoHealedTaskIds.contains(task.id)) {
-                            task.downloadState = Error(throwable = throwable, action = FetchInfo)
                             autoHealAndRetry(task, FetchInfo)
                             return@onFailure
                         }
@@ -427,7 +433,6 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                             return@onFailure
                         }
                         if (throwable.isExtractorOrBotIssue() && !autoHealedTaskIds.contains(id)) {
-                            downloadState = Error(throwable = throwable, action = Download)
                             autoHealAndRetry(this@download, Download)
                             return@onFailure
                         }
@@ -530,7 +535,6 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         }
                         outputBuilder.appendLine("\nError: ${throwable.message}\n${throwable.stackTraceToString()}")
                         if (throwable.isExtractorOrBotIssue() && !autoHealedTaskIds.contains(id)) {
-                            downloadState = Error(throwable = throwable, action = Download)
                             autoHealAndRetry(this@execute, Download)
                             return@onFailure
                         }

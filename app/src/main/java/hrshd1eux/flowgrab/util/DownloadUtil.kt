@@ -82,6 +82,11 @@ object DownloadUtil {
         downloadPreferences: DownloadPreferences = DownloadPreferences.createFromPreferences(),
     ): Result<YoutubeDLInfo> =
         YoutubeDL.runCatching {
+            if (!App.isInitialized()) {
+                kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                    App.awaitInitialization()
+                }
+            }
             ToastUtil.makeToastSuspend(context.getString(R.string.fetching_playlist_info))
             val request = YoutubeDLRequest(playlistURL)
             with(request) {
@@ -90,7 +95,9 @@ object DownloadUtil {
                 addOption("--dump-single-json")
                 addOption("-o", BASENAME)
                 addOption("-R", "3")
-                addOption("--socket-timeout", "15")
+                addOption("--socket-timeout", "20")
+                addOption("--no-check-certificates")
+                addOption("--no-warnings")
                 applyClientExtractorArgs()
                 downloadPreferences.run {
                     if (extractAudio) {
@@ -111,12 +118,19 @@ object DownloadUtil {
                     }
                 }
             }
-            execute(request, playlistURL).out.run {
-                val playlistInfo = jsonFormat.decodeFromString<PlaylistResult>(this)
-                if (playlistInfo.type != "playlist") {
-                    jsonFormat.decodeFromString<VideoInfo>(this)
-                } else playlistInfo
-            }
+            val responseOut = execute(request, playlistURL).out.trim()
+            val jsonStartIndex = responseOut.indexOf('{')
+            val jsonEndIndex = responseOut.lastIndexOf('}')
+            val cleanJson =
+                if (jsonStartIndex != -1 && jsonEndIndex != -1 && jsonEndIndex >= jsonStartIndex) {
+                    responseOut.substring(jsonStartIndex, jsonEndIndex + 1)
+                } else {
+                    responseOut
+                }
+            val playlistInfo = jsonFormat.decodeFromString<PlaylistResult>(cleanJson)
+            if (playlistInfo.type != "playlist") {
+                jsonFormat.decodeFromString<VideoInfo>(cleanJson)
+            } else playlistInfo
         }
 
     @CheckResult
@@ -125,9 +139,23 @@ object DownloadUtil {
         taskKey: String? = null,
     ): Result<VideoInfo> =
         request.runCatching {
+            if (!App.isInitialized()) {
+                kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                    App.awaitInitialization()
+                }
+            }
             val response: YoutubeDLResponse =
                 YoutubeDL.getInstance().execute(request, taskKey, null)
-            jsonFormat.decodeFromString(response.out)
+            val responseOut = response.out.trim()
+            val jsonStartIndex = responseOut.indexOf('{')
+            val jsonEndIndex = responseOut.lastIndexOf('}')
+            val cleanJson =
+                if (jsonStartIndex != -1 && jsonEndIndex != -1 && jsonEndIndex >= jsonStartIndex) {
+                    responseOut.substring(jsonStartIndex, jsonEndIndex + 1)
+                } else {
+                    responseOut
+                }
+            jsonFormat.decodeFromString<VideoInfo>(cleanJson)
         }
 
     val videoInfoCache = java.util.concurrent.ConcurrentHashMap<String, VideoInfo>()
@@ -145,7 +173,7 @@ object DownloadUtil {
             videoInfoCache[url]?.let { return Result.success(it) }
         }
         with(preferences) {
-            val request =
+            fun buildRequest(clientExtractorArgs: String? = null): YoutubeDLRequest =
                 YoutubeDLRequest(url).apply {
                     addOption("-o", BASENAME)
                     if (restrictFilenames) {
@@ -164,13 +192,14 @@ object DownloadUtil {
                     if (forceIpv4) {
                         addOption("-4")
                     }
-                    /*            if (debug) {
-                        addOption("-v")
-                    }*/
                     if (autoSubtitle) {
                         addOption("--write-auto-subs")
                     }
-                    applyClientExtractorArgs(autoSubtitle, autoTranslatedSubtitles)
+                    if (clientExtractorArgs != null) {
+                        addOption("--extractor-args", "youtube:$clientExtractorArgs")
+                    } else {
+                        applyClientExtractorArgs(autoSubtitle, autoTranslatedSubtitles)
+                    }
                     if (playlistIndex != null) {
                         addOption("--playlist-items", playlistIndex)
                         addOption("--dump-json")
@@ -179,11 +208,31 @@ object DownloadUtil {
                     }
                     addOption("-R", "2")
                     addOption("--no-playlist")
-                    addOption("--socket-timeout", "8")
+                    addOption("--socket-timeout", "20")
                     addOption("--no-check-certificates")
                     addOption("--no-warnings")
                 }
-            return getVideoInfo(request, taskKey).onSuccess { info ->
+
+            val request = buildRequest()
+            var res = getVideoInfo(request, taskKey)
+
+            // If primary YouTube extraction fails (e.g., player client blocked), attempt fallback client
+            if (res.isFailure && url.contains("youtu", ignoreCase = true)) {
+                Log.w(TAG, "Primary extractor attempt failed for $url, retrying with iOS client fallback...")
+                val fallbackArgs =
+                    if (autoSubtitle && !autoTranslatedSubtitles) {
+                        "player_client=ios,web;player_skip=configs,webpage;skip=translated_subs"
+                    } else {
+                        "player_client=ios,web;player_skip=configs,webpage"
+                    }
+                val fallbackRequest = buildRequest(fallbackArgs)
+                val fallbackRes = getVideoInfo(fallbackRequest, taskKey)
+                if (fallbackRes.isSuccess) {
+                    res = fallbackRes
+                }
+            }
+
+            return res.onSuccess { info ->
                 if (playlistIndex == null) {
                     videoInfoCache[url] = info
                 }
@@ -443,12 +492,13 @@ object DownloadUtil {
         autoTranslatedSubtitles: Boolean = false,
     ): YoutubeDLRequest = apply {
         val args = mutableListOf<String>()
+        // Pass player_client spoofing and skip configs to avoid YouTube botguard/login-required errors
+        args.add("player_client=android_creator,android,ios,web")
+        args.add("player_skip=configs,webpage")
         if (autoSubtitle && !autoTranslatedSubtitles) {
             args.add("skip=translated_subs")
         }
-        if (args.isNotEmpty()) {
-            addOption("--extractor-args", "youtube:${args.joinToString(";")}")
-        }
+        addOption("--extractor-args", "youtube:${args.joinToString(";")}")
     }
 
     private fun YoutubeDLRequest.enableAria2c(): YoutubeDLRequest =
@@ -791,6 +841,8 @@ object DownloadUtil {
                     addOption("--http-chunk-size", "10M")
                     addOption("--retries", "3")
                     addOption("--fragment-retries", "5")
+                    addOption("--socket-timeout", "30")
+                    addOption("--no-check-certificates")
 
                     if (extractAudio || (videoInfo.vcodec == "none")) {
                         if (privateDirectory) pathBuilder.append(App.privateDownloadDir)
@@ -855,6 +907,11 @@ object DownloadUtil {
                     for (s in request.buildCommand()) Log.d(TAG, s)
                 }
                 .runCatching {
+                    if (!App.isInitialized()) {
+                        kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                            App.awaitInitialization()
+                        }
+                    }
                     YoutubeDL.getInstance()
                         .execute(request = this, processId = taskId, callback = progressCallback)
                 }
@@ -967,6 +1024,11 @@ object DownloadUtil {
             }
 
         return runCatching {
+            if (!App.isInitialized()) {
+                kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                    App.awaitInitialization()
+                }
+            }
             YoutubeDL.getInstance()
                 .execute(request = request, processId = taskId, callback = progressCallback)
         }

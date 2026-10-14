@@ -84,16 +84,18 @@ class App : Application() {
         clipboard = getSystemService()!!
         connectivityManager = getSystemService()!!
 
-        applicationScope.launch((Dispatchers.IO)) {
+        applicationScope.launch(Dispatchers.IO) {
             try {
                 YoutubeDL.init(this@App)
                 FFmpeg.init(this@App)
                 Aria2c.init(this@App)
+                initializationDeferred.complete(true)
                 DownloadUtil.getCookiesContentFromDatabase().getOrNull()?.let {
                     FileUtil.writeContentToFile(it, getCookiesFile())
                 }
                 UpdateUtil.deleteOutdatedApk()
             } catch (th: Throwable) {
+                initializationDeferred.completeExceptionally(th)
                 withContext(Dispatchers.Main) { startCrashReportActivity(th) }
             }
         }
@@ -122,6 +124,18 @@ class App : Application() {
     }
 
     companion object {
+        private val initializationDeferred = kotlinx.coroutines.CompletableDeferred<Boolean>()
+
+        suspend fun awaitInitialization() {
+            try {
+                initializationDeferred.await()
+            } catch (e: Exception) {
+                android.util.Log.e("App", "YoutubeDL initialization failed or delayed", e)
+            }
+        }
+
+        fun isInitialized(): Boolean = initializationDeferred.isCompleted
+
         lateinit var clipboard: ClipboardManager
         lateinit var videoDownloadDir: String
         lateinit var audioDownloadDir: String
