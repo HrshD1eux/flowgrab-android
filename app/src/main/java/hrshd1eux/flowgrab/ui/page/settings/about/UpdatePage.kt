@@ -141,6 +141,7 @@ fun UpdatePage(onNavigateBack: () -> Unit) {
                                             withContext(Dispatchers.IO) {
                                                 UpdateUtil.checkForUpdate()?.let {
                                                     release = it
+                                                    UpdateUtil.prefetchLatestApk(context, it)
                                                     showUpdateDialog = true
                                                 }
                                                     ?: ToastUtil.makeToastSuspend(

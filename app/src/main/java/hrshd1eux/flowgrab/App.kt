@@ -100,6 +100,13 @@ class App : Application() {
                     FileUtil.writeContentToFile(it, getCookiesFile())
                 }
                 UpdateUtil.deleteOutdatedApk()
+                if (PreferenceUtil.isAutoUpdateEnabled() && PreferenceUtil.isNetworkAvailableForDownload()) {
+                    runCatching {
+                        UpdateUtil.checkForUpdate(this@App)?.let { rel ->
+                            UpdateUtil.prefetchLatestApk(this@App, rel)
+                        }
+                    }
+                }
             } catch (th: Throwable) {
                 initializationDeferred.completeExceptionally(th)
                 withContext(Dispatchers.Main) { startCrashReportActivity(th) }

@@ -21,9 +21,14 @@ import com.yausername.youtubedl_android.YoutubeDL
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.RandomAccessFile
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +41,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.ResponseBody
@@ -52,6 +59,11 @@ object UpdateUtil {
 
     private val client =
         OkHttpClient.Builder()
+            .dispatcher(Dispatcher().apply {
+                maxRequests = 32
+                maxRequestsPerHost = 16
+            })
+            .connectionPool(ConnectionPool(8, 2, TimeUnit.MINUTES))
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
@@ -85,7 +97,36 @@ object UpdateUtil {
     fun isDownloading(): Boolean =
         downloadStatus.value is DownloadStatus.Progress || downloadStatus.value is DownloadStatus.Connecting
 
-    fun startBackgroundDownload(context: Context = App.context, release: Release) {
+    fun prefetchLatestApk(context: Context = App.context, release: Release) {
+        val current = downloadStatus.value
+        if (current is DownloadStatus.Progress || current is DownloadStatus.Connecting || current is DownloadStatus.Finished) {
+            return
+        }
+
+        val apkDir = context.getExternalFilesDir("apk") ?: File(context.filesDir, "apk")
+        val finalFile = File(apkDir, "latest.apk")
+        val targetVersion = (release.tagName ?: release.name).toVersion()
+
+        // If already downloaded and valid, mark ready immediately
+        if (finalFile.exists() && finalFile.length() > 0L) {
+            val existingApkInfo = context.packageManager.getPackageArchiveInfo(finalFile.absolutePath, 0)
+            val existingVersion = existingApkInfo?.versionName.toVersion()
+            if (existingApkInfo != null && existingVersion != EMPTY_VERSION && existingVersion >= targetVersion) {
+                downloadStatus.value = DownloadStatus.Finished(finalFile)
+                readyToInstallRelease = release
+                return
+            }
+        }
+
+        Log.d(TAG, "Starting silent background pre-fetch for release ${release.tagName}")
+        startBackgroundDownload(context, release, silent = true)
+    }
+
+    fun startBackgroundDownload(
+        context: Context = App.context,
+        release: Release,
+        silent: Boolean = false,
+    ) {
         val current = downloadStatus.value
         if (current is DownloadStatus.Progress || current is DownloadStatus.Connecting) {
             Log.d(TAG, "Download already in progress")
@@ -122,7 +163,9 @@ object UpdateUtil {
                 downloadStatus.value = DownloadStatus.Failed(e.message ?: "Download failed")
                 currentDownloadingRelease = null
                 NotificationUtil.cancelUpdateNotification()
-                ToastUtil.makeToastSuspend(context.getString(R.string.app_update_failed))
+                if (!silent) {
+                    ToastUtil.makeToastSuspend(context.getString(R.string.app_update_failed))
+                }
             }
         }
     }
@@ -269,17 +312,19 @@ object UpdateUtil {
             val targetVersion = (release.tagName ?: release.name).toVersion()
             val versionName = (release.name?.takeIf { it.isNotBlank() } ?: release.tagName ?: "Update").toString()
 
-            // If the latest APK already exists, is complete and valid, skip re-download
+            // 1. Instant check: If the latest APK already exists, is complete and valid, skip re-download
             if (finalFile.exists() && finalFile.length() > 0L) {
                 val existingApkInfo = context.packageManager.getPackageArchiveInfo(finalFile.absolutePath, 0)
                 val existingVersion = existingApkInfo?.versionName.toVersion()
                 if (existingApkInfo != null && existingVersion != EMPTY_VERSION && existingVersion >= targetVersion) {
+                    Log.i(TAG, "Instant install ready: Valid cached APK found at ${finalFile.absolutePath}")
+                    emit(DownloadStatus.Progress(100))
                     emit(DownloadStatus.Finished(finalFile))
                     return@flow
                 }
             }
 
-            // Find matching asset prioritizing device supported ABIs in order
+            // 2. Strict ABI selection: Find matching asset prioritizing device supported ABIs in order
             var matchedAsset: AssetsItem? = null
             for (abi in Build.SUPPORTED_ABIS) {
                 matchedAsset = release.assets?.find { asset ->
@@ -289,7 +334,7 @@ object UpdateUtil {
                 if (matchedAsset != null) break
             }
 
-            // Fallback to universal APK
+            // Fallback to universal APK only if no ABI-specific APK matched
             if (matchedAsset == null) {
                 matchedAsset = release.assets?.find { asset ->
                     val name = asset.name?.lowercase() ?: ""
@@ -307,130 +352,307 @@ object UpdateUtil {
             val targetUrl = matchedAsset?.browserDownloadUrl
                 ?: throw IllegalStateException("No compatible APK asset found in release")
 
-            Log.d(TAG, "Starting download for ${matchedAsset.name} from $targetUrl")
+            Log.d(TAG, "Starting parallel download for ${matchedAsset.name} from $targetUrl")
             NotificationUtil.notifyUpdateProgress(versionName, 0)
             emit(DownloadStatus.Progress(0))
 
-            val maxRetries = 5
-            var attempt = 0
-            var completed = false
+            // 3. Probe file size and Range header support with HEAD request
+            var contentLength = -1L
+            var supportsRange = false
+            try {
+                val headReq = Request.Builder()
+                    .url(targetUrl)
+                    .header("User-Agent", "FlowGrab-Android")
+                    .head()
+                    .build()
+                client.newCall(headReq).execute().use { headResp ->
+                    if (headResp.isSuccessful) {
+                        contentLength = headResp.header("Content-Length")?.toLongOrNull() ?: -1L
+                        val acceptRanges = headResp.header("Accept-Ranges")
+                        supportsRange = acceptRanges?.contains("bytes", ignoreCase = true) == true
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "HEAD probe failed, will attempt Range probe with GET", e)
+            }
 
-            while (!completed && attempt < maxRetries) {
-                attempt++
-                var downloadedBytes = if (tempFile.exists()) tempFile.length() else 0L
-
+            // If HEAD didn't return Content-Length, probe with a tiny range GET (0-1)
+            if (contentLength <= 0L) {
                 try {
-                    val requestBuilder = Request.Builder()
+                    val probeReq = Request.Builder()
                         .url(targetUrl)
                         .header("User-Agent", "FlowGrab-Android")
-
-                    if (downloadedBytes > 0) {
-                        requestBuilder.header("Range", "bytes=$downloadedBytes-")
-                        Log.d(TAG, "Attempt $attempt: Requesting range from $downloadedBytes bytes")
-                    } else {
-                        Log.d(TAG, "Attempt $attempt: Starting fresh download")
-                    }
-
-                    val response = client.newCall(requestBuilder.build()).execute()
-                    val responseCode = response.code
-
-                    if (responseCode == 416) {
-                        Log.w(TAG, "HTTP 416 Range Not Satisfiable, resetting temp file")
-                        response.close()
-                        tempFile.delete()
-                        downloadedBytes = 0L
-                        continue
-                    }
-
-                    if (!response.isSuccessful) {
-                        response.close()
-                        throw IOException("HTTP error $responseCode: ${response.message}")
-                    }
-
-                    val responseBody = response.body
-                        ?: throw IOException("Empty response body from release download")
-
-                    val isAppend = (responseCode == 206)
-                    if (!isAppend && downloadedBytes > 0) {
-                        Log.d(TAG, "Server returned 200, restarting from byte 0")
-                        downloadedBytes = 0L
-                    }
-
-                    val remainingBytes = responseBody.contentLength()
-                    val totalBytes = if (remainingBytes > 0) downloadedBytes + remainingBytes else -1L
-
-                    responseBody.byteStream().use { inputStream ->
-                        FileOutputStream(tempFile, isAppend).use { outputStream ->
-                            val buffer = ByteArray(65_536) // 64KB high-throughput buffer
-                            var lastEmitTime = 0L
-
-                            while (true) {
-                                val bytesRead = inputStream.read(buffer)
-                                if (bytesRead == -1) break
-
-                                outputStream.write(buffer, 0, bytesRead)
-                                downloadedBytes += bytesRead
-
-                                val now = System.currentTimeMillis()
-                                if (totalBytes > 0) {
-                                    val percent = ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
-                                    if (now - lastEmitTime > 300 || percent == 100) {
-                                        lastEmitTime = now
-                                        emit(DownloadStatus.Progress(percent))
-                                        NotificationUtil.notifyUpdateProgress(versionName, percent)
-                                    }
-                                } else {
-                                    if (now - lastEmitTime > 500) {
-                                        lastEmitTime = now
-                                        emit(DownloadStatus.Progress(-1))
-                                    }
-                                }
+                        .header("Range", "bytes=0-1")
+                        .build()
+                    client.newCall(probeReq).execute().use { probeResp ->
+                        if (probeResp.code == 206) {
+                            supportsRange = true
+                            val contentRange = probeResp.header("Content-Range")
+                            contentRange?.substringAfterLast('/')?.toLongOrNull()?.let {
+                                contentLength = it
                             }
-                            outputStream.flush()
                         }
                     }
-
-                    if (totalBytes > 0 && downloadedBytes < totalBytes) {
-                        throw IOException("Incomplete transfer: $downloadedBytes / $totalBytes bytes")
-                    }
-
-                    if (downloadedBytes == 0L) {
-                        throw IOException("Downloaded 0 bytes")
-                    }
-
-                    val archiveInfo = context.packageManager.getPackageArchiveInfo(tempFile.absolutePath, 0)
-                    if (archiveInfo == null) {
-                        tempFile.delete()
-                        throw IOException("Downloaded APK archive is corrupted or invalid")
-                    }
-
-                    if (finalFile.exists()) {
-                        finalFile.delete()
-                    }
-                    if (!tempFile.renameTo(finalFile)) {
-                        tempFile.copyTo(finalFile, overwrite = true)
-                        tempFile.delete()
-                    }
-
-                    completed = true
-                    Log.i(TAG, "APK successfully downloaded and validated at ${finalFile.absolutePath}")
-                    emit(DownloadStatus.Finished(finalFile))
-
                 } catch (e: Exception) {
-                    Log.w(TAG, "Download attempt $attempt failed: ${e.message}")
-                    if (attempt >= maxRetries) {
-                        throw e
-                    }
-                    delay(1500L * attempt)
+                    Log.w(TAG, "GET range probe failed", e)
                 }
             }
 
-            if (!completed) {
-                throw IOException("Failed to complete APK download after $maxRetries attempts")
+            Log.i(TAG, "APK size: $contentLength bytes, supportsRange: $supportsRange")
+
+            // 4. Execution: Parallel Chunked Download if Range is supported and file is > 4MB
+            if (supportsRange && contentLength > 4 * 1024 * 1024) {
+                downloadParallelChunks(
+                    context = context,
+                    targetUrl = targetUrl,
+                    contentLength = contentLength,
+                    tempFile = tempFile,
+                    finalFile = finalFile,
+                    versionName = versionName,
+                    onProgress = { percent ->
+                        emit(DownloadStatus.Progress(percent))
+                    }
+                )
+            } else {
+                // Fallback to single-connection download with Range resume
+                downloadSingleStream(
+                    context = context,
+                    targetUrl = targetUrl,
+                    tempFile = tempFile,
+                    finalFile = finalFile,
+                    versionName = versionName,
+                    onProgress = { percent ->
+                        emit(DownloadStatus.Progress(percent))
+                    }
+                )
             }
+
+            emit(DownloadStatus.Finished(finalFile))
         }
         .flowOn(Dispatchers.IO)
         .distinctUntilChanged()
+
+    private suspend fun downloadParallelChunks(
+        context: Context,
+        targetUrl: String,
+        contentLength: Long,
+        tempFile: File,
+        finalFile: File,
+        versionName: String,
+        onProgress: suspend (Int) -> Unit,
+    ) {
+        val numWorkers = 6
+        val chunkSize = (contentLength + numWorkers - 1) / numWorkers
+
+        RandomAccessFile(tempFile, "rw").use { raf ->
+            raf.setLength(contentLength)
+        }
+
+        val downloadedBytes = AtomicLong(0L)
+        val lastEmitTime = AtomicLong(0L)
+
+        coroutineScope {
+            val deferreds = (0 until numWorkers).map { workerIndex ->
+                async(Dispatchers.IO) {
+                    val start = workerIndex * chunkSize
+                    val end = minOf((workerIndex + 1) * chunkSize - 1, contentLength - 1)
+                    val expectedBytes = end - start + 1
+
+                    var success = false
+                    var attempt = 0
+                    val maxRetries = 5
+
+                    while (!success && attempt < maxRetries) {
+                        attempt++
+                        try {
+                            val request = Request.Builder()
+                                .url(targetUrl)
+                                .header("User-Agent", "FlowGrab-Android")
+                                .header("Range", "bytes=$start-$end")
+                                .build()
+
+                            client.newCall(request).execute().use { response ->
+                                if (response.code != 206 && response.code != 200) {
+                                    throw IOException("Worker $workerIndex received HTTP ${response.code}")
+                                }
+
+                                val body = response.body
+                                    ?: throw IOException("Worker $workerIndex received empty body")
+
+                                body.byteStream().use { inputStream ->
+                                    RandomAccessFile(tempFile, "rw").use { raf ->
+                                        raf.seek(start)
+                                        val buffer = ByteArray(65_536)
+                                        var bytesRead: Int
+                                        var workerWritten = 0L
+
+                                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                            raf.write(buffer, 0, bytesRead)
+                                            workerWritten += bytesRead
+                                            val totalNow = downloadedBytes.addAndGet(bytesRead.toLong())
+
+                                            val now = System.currentTimeMillis()
+                                            if (now - lastEmitTime.get() > 250 || totalNow >= contentLength) {
+                                                lastEmitTime.set(now)
+                                                val percent = ((totalNow * 100) / contentLength).toInt().coerceIn(0, 100)
+                                                onProgress(percent)
+                                                NotificationUtil.notifyUpdateProgress(versionName, percent)
+                                            }
+                                        }
+
+                                        if (workerWritten < expectedBytes) {
+                                            throw IOException("Worker $workerIndex incomplete: wrote $workerWritten of $expectedBytes")
+                                        }
+                                    }
+                                }
+                            }
+                            success = true
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Worker $workerIndex attempt $attempt failed: ${e.message}")
+                            if (attempt >= maxRetries) throw e
+                            delay(1000L * attempt)
+                        }
+                    }
+                }
+            }
+
+            deferreds.awaitAll()
+        }
+
+        if (tempFile.length() != contentLength) {
+            tempFile.delete()
+            throw IOException("File size mismatch after parallel download: ${tempFile.length()} vs $contentLength")
+        }
+
+        val archiveInfo = context.packageManager.getPackageArchiveInfo(tempFile.absolutePath, 0)
+        if (archiveInfo == null) {
+            tempFile.delete()
+            throw IOException("Downloaded APK archive is corrupted or invalid")
+        }
+
+        if (finalFile.exists()) {
+            finalFile.delete()
+        }
+        if (!tempFile.renameTo(finalFile)) {
+            tempFile.copyTo(finalFile, overwrite = true)
+            tempFile.delete()
+        }
+
+        Log.i(TAG, "Parallel download complete & validated at ${finalFile.absolutePath}")
+    }
+
+    private suspend fun downloadSingleStream(
+        context: Context,
+        targetUrl: String,
+        tempFile: File,
+        finalFile: File,
+        versionName: String,
+        onProgress: suspend (Int) -> Unit,
+    ) {
+        val maxRetries = 5
+        var attempt = 0
+        var completed = false
+
+        while (!completed && attempt < maxRetries) {
+            attempt++
+            var downloadedBytes = if (tempFile.exists()) tempFile.length() else 0L
+
+            try {
+                val requestBuilder = Request.Builder()
+                    .url(targetUrl)
+                    .header("User-Agent", "FlowGrab-Android")
+
+                if (downloadedBytes > 0) {
+                    requestBuilder.header("Range", "bytes=$downloadedBytes-")
+                }
+
+                val response = client.newCall(requestBuilder.build()).execute()
+                val responseCode = response.code
+
+                if (responseCode == 416) {
+                    response.close()
+                    tempFile.delete()
+                    downloadedBytes = 0L
+                    continue
+                }
+
+                if (!response.isSuccessful) {
+                    response.close()
+                    throw IOException("HTTP error $responseCode: ${response.message}")
+                }
+
+                val responseBody = response.body
+                    ?: throw IOException("Empty response body from release download")
+
+                val isAppend = (responseCode == 206)
+                if (!isAppend && downloadedBytes > 0) {
+                    downloadedBytes = 0L
+                }
+
+                val remainingBytes = responseBody.contentLength()
+                val totalBytes = if (remainingBytes > 0) downloadedBytes + remainingBytes else -1L
+
+                responseBody.byteStream().use { inputStream ->
+                    FileOutputStream(tempFile, isAppend).use { outputStream ->
+                        val buffer = ByteArray(65_536)
+                        var lastEmitTime = 0L
+
+                        while (true) {
+                            val bytesRead = inputStream.read(buffer)
+                            if (bytesRead == -1) break
+
+                            outputStream.write(buffer, 0, bytesRead)
+                            downloadedBytes += bytesRead
+
+                            val now = System.currentTimeMillis()
+                            if (totalBytes > 0) {
+                                val percent = ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
+                                if (now - lastEmitTime > 250 || percent == 100) {
+                                    lastEmitTime = now
+                                    onProgress(percent)
+                                    NotificationUtil.notifyUpdateProgress(versionName, percent)
+                                }
+                            } else {
+                                if (now - lastEmitTime > 500) {
+                                    lastEmitTime = now
+                                    onProgress(-1)
+                                }
+                            }
+                        }
+                        outputStream.flush()
+                    }
+                }
+
+                if (totalBytes > 0 && downloadedBytes < totalBytes) {
+                    throw IOException("Incomplete transfer: $downloadedBytes / $totalBytes bytes")
+                }
+
+                val archiveInfo = context.packageManager.getPackageArchiveInfo(tempFile.absolutePath, 0)
+                if (archiveInfo == null) {
+                    tempFile.delete()
+                    throw IOException("Downloaded APK archive is corrupted or invalid")
+                }
+
+                if (finalFile.exists()) {
+                    finalFile.delete()
+                }
+                if (!tempFile.renameTo(finalFile)) {
+                    tempFile.copyTo(finalFile, overwrite = true)
+                    tempFile.delete()
+                }
+
+                completed = true
+            } catch (e: Exception) {
+                Log.w(TAG, "Single-stream attempt $attempt failed: ${e.message}")
+                if (attempt >= maxRetries) throw e
+                delay(1500L * attempt)
+            }
+        }
+
+        if (!completed) {
+            throw IOException("Failed to complete APK download after $maxRetries attempts")
+        }
+    }
 
     @Serializable
     data class Release(

@@ -37,6 +37,7 @@ fun AppUpdater() {
             runCatching {
                 UpdateUtil.checkForUpdate()?.let {
                     release = it
+                    UpdateUtil.prefetchLatestApk(context, it)
                     showUpdateDialog = true
                 }
             }.onFailure { it.printStackTrace() }
