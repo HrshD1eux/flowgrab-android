@@ -75,6 +75,8 @@ object UpdateUtil {
     private val requestForLatestRelease =
         Request.Builder()
             .url("https://api.github.com/repos/${OWNER}/${REPO}/releases/latest")
+            .header("User-Agent", "FlowGrab-Android")
+            .header("Accept", "application/vnd.github.v3+json")
             .build()
 
     private val requestForReleases =
@@ -87,7 +89,11 @@ object UpdateUtil {
     private const val ytdlpNightlyBuildRelease =
         "https://api.github.com/repos/yt-dlp/yt-dlp-nightly-builds/releases/latest"
 
-    private val jsonFormat = Json { ignoreUnknownKeys = true }
+    private val jsonFormat = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+    }
 
     val downloadStatus = MutableStateFlow<DownloadStatus>(DownloadStatus.NotYet)
     var currentDownloadingRelease: Release? = null
@@ -109,9 +115,16 @@ object UpdateUtil {
 
         // If already downloaded and valid, mark ready immediately
         if (finalFile.exists() && finalFile.length() > 0L) {
-            val existingApkInfo = context.packageManager.getPackageArchiveInfo(finalFile.absolutePath, 0)
+            val isValid = isApkValid(context, finalFile)
+            val existingApkInfo = runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.getPackageArchiveInfo(finalFile.absolutePath, PackageManager.PackageInfoFlags.of(0))
+                } else {
+                    context.packageManager.getPackageArchiveInfo(finalFile.absolutePath, 0)
+                }
+            }.getOrNull()
             val existingVersion = existingApkInfo?.versionName.toVersion()
-            if (existingApkInfo != null && existingVersion != EMPTY_VERSION && existingVersion >= targetVersion) {
+            if (isValid && (existingVersion == EMPTY_VERSION || existingVersion >= targetVersion)) {
                 downloadStatus.value = DownloadStatus.Finished(finalFile)
                 readyToInstallRelease = release
                 return
@@ -193,23 +206,33 @@ object UpdateUtil {
 
     private fun getLatestRelease(): Release? =
         try {
-            val response = client.newCall(requestForReleases).execute()
-            if (!response.isSuccessful) null
-            else {
-                response.body.use { body ->
-                    val releaseList = jsonFormat.decodeFromString<List<Release>>(body.string())
-                    if (releaseList.isEmpty()) return null
-                    val stable = UPDATE_CHANNEL.getInt() == STABLE
-                    releaseList
-                        .filter { release ->
-                            val ver = (release.tagName ?: release.name).toVersion()
-                            if (stable) ver is Version.Stable else true
+            client.newCall(requestForReleases).execute().use { response ->
+                if (response.isSuccessful) {
+                    response.body?.let { body ->
+                        val releaseList = jsonFormat.decodeFromString<List<Release>>(body.string())
+                        if (releaseList.isNotEmpty()) {
+                            val stable = UPDATE_CHANNEL.getInt() == STABLE
+                            return releaseList
+                                .filter { release ->
+                                    val ver = (release.tagName ?: release.name).toVersion()
+                                    if (stable) ver is Version.Stable else true
+                                }
+                                .maxByOrNull { release -> (release.tagName ?: release.name).toVersion() }
                         }
-                        .maxByOrNull { release -> (release.tagName ?: release.name).toVersion() }
+                    }
                 }
             }
+            // Fallback to releases/latest if list endpoint is throttled or empty
+            client.newCall(requestForLatestRelease).execute().use { response ->
+                if (response.isSuccessful) {
+                    response.body?.let { body ->
+                        return jsonFormat.decodeFromString<Release>(body.string())
+                    }
+                }
+            }
+            null
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "getLatestRelease failed", e)
             null
         }
 
@@ -232,6 +255,31 @@ object UpdateUtil {
 
     fun getLatestApk(context: Context = App.context) = File(context.getExternalFilesDir("apk") ?: File(context.filesDir, "apk"), "latest.apk")
 
+    fun isApkValid(context: Context, apkFile: File): Boolean {
+        if (!apkFile.exists() || apkFile.length() == 0L) return false
+        val archiveInfo = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageArchiveInfo(
+                    apkFile.absolutePath,
+                    PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+            }
+        }.getOrNull()
+
+        if (archiveInfo != null && (archiveInfo.packageName?.startsWith("hrshd1eux.flowgrab") == true || archiveInfo.packageName == context.packageName)) {
+            return true
+        }
+
+        // Fallback: Verify file is a valid zip archive containing AndroidManifest.xml and classes.dex
+        return runCatching {
+            java.util.zip.ZipFile(apkFile).use { zip ->
+                zip.getEntry("AndroidManifest.xml") != null && zip.getEntry("classes.dex") != null
+            }
+        }.getOrDefault(false)
+    }
+
     fun installLatestApk(context: Context = App.context) {
         val apkFile = getLatestApk(context)
         if (!apkFile.exists() || apkFile.length() == 0L) {
@@ -240,8 +288,7 @@ object UpdateUtil {
             return
         }
 
-        val archiveInfo = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
-        if (archiveInfo == null) {
+        if (!isApkValid(context, apkFile)) {
             Log.e(TAG, "installLatestApk: APK file is corrupt, deleting it")
             apkFile.delete()
             ToastUtil.makeToast(R.string.app_update_failed)
@@ -285,12 +332,15 @@ object UpdateUtil {
         context.runCatching {
             val apkFile = getLatestApk(context)
             if (apkFile.exists()) {
-                val apkVersion =
-                    context.packageManager
-                        .getPackageArchiveInfo(apkFile.absolutePath, 0)
-                        ?.versionName
-                        .toVersion()
-                if (apkVersion <= context.getCurrentVersion()) {
+                val apkInfo = runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.PackageInfoFlags.of(0))
+                    } else {
+                        context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+                    }
+                }.getOrNull()
+                val apkVersion = apkInfo?.versionName.toVersion()
+                if (apkVersion != EMPTY_VERSION && apkVersion <= context.getCurrentVersion()) {
                     apkFile.delete()
                 }
             }
@@ -314,9 +364,16 @@ object UpdateUtil {
 
             // 1. Instant check: If the latest APK already exists, is complete and valid, skip re-download
             if (finalFile.exists() && finalFile.length() > 0L) {
-                val existingApkInfo = context.packageManager.getPackageArchiveInfo(finalFile.absolutePath, 0)
+                val isValid = isApkValid(context, finalFile)
+                val existingApkInfo = runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        context.packageManager.getPackageArchiveInfo(finalFile.absolutePath, PackageManager.PackageInfoFlags.of(0))
+                    } else {
+                        context.packageManager.getPackageArchiveInfo(finalFile.absolutePath, 0)
+                    }
+                }.getOrNull()
                 val existingVersion = existingApkInfo?.versionName.toVersion()
-                if (existingApkInfo != null && existingVersion != EMPTY_VERSION && existingVersion >= targetVersion) {
+                if (isValid && (existingVersion == EMPTY_VERSION || existingVersion >= targetVersion)) {
                     Log.i(TAG, "Instant install ready: Valid cached APK found at ${finalFile.absolutePath}")
                     emit(DownloadStatus.Progress(100))
                     emit(DownloadStatus.Finished(finalFile))
@@ -464,6 +521,7 @@ object UpdateUtil {
 
                     while (!success && attempt < maxRetries) {
                         attempt++
+                        var workerWritten = 0L
                         try {
                             val request = Request.Builder()
                                 .url(targetUrl)
@@ -472,8 +530,8 @@ object UpdateUtil {
                                 .build()
 
                             client.newCall(request).execute().use { response ->
-                                if (response.code != 206 && response.code != 200) {
-                                    throw IOException("Worker $workerIndex received HTTP ${response.code}")
+                                if (response.code != 206) {
+                                    throw IOException("Worker $workerIndex received HTTP ${response.code} instead of 206 Partial Content")
                                 }
 
                                 val body = response.body
@@ -484,12 +542,14 @@ object UpdateUtil {
                                         raf.seek(start)
                                         val buffer = ByteArray(65_536)
                                         var bytesRead: Int
-                                        var workerWritten = 0L
 
                                         while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                                            raf.write(buffer, 0, bytesRead)
-                                            workerWritten += bytesRead
-                                            val totalNow = downloadedBytes.addAndGet(bytesRead.toLong())
+                                            val toWrite = minOf(bytesRead.toLong(), expectedBytes - workerWritten).toInt()
+                                            if (toWrite <= 0) break
+
+                                            raf.write(buffer, 0, toWrite)
+                                            workerWritten += toWrite
+                                            val totalNow = downloadedBytes.addAndGet(toWrite.toLong())
 
                                             val now = System.currentTimeMillis()
                                             if (now - lastEmitTime.get() > 250 || totalNow >= contentLength) {
@@ -498,6 +558,8 @@ object UpdateUtil {
                                                 onProgress(percent)
                                                 NotificationUtil.notifyUpdateProgress(versionName, percent)
                                             }
+
+                                            if (workerWritten >= expectedBytes) break
                                         }
 
                                         if (workerWritten < expectedBytes) {
@@ -509,6 +571,7 @@ object UpdateUtil {
                             success = true
                         } catch (e: Exception) {
                             Log.w(TAG, "Worker $workerIndex attempt $attempt failed: ${e.message}")
+                            downloadedBytes.addAndGet(-workerWritten)
                             if (attempt >= maxRetries) throw e
                             delay(1000L * attempt)
                         }
@@ -524,18 +587,19 @@ object UpdateUtil {
             throw IOException("File size mismatch after parallel download: ${tempFile.length()} vs $contentLength")
         }
 
-        val archiveInfo = context.packageManager.getPackageArchiveInfo(tempFile.absolutePath, 0)
-        if (archiveInfo == null) {
-            tempFile.delete()
-            throw IOException("Downloaded APK archive is corrupted or invalid")
-        }
-
+        // Rename tempFile to finalFile BEFORE validating APK!
+        // Android's PackageParser strictly rejects filenames that do not end in .apk
         if (finalFile.exists()) {
             finalFile.delete()
         }
         if (!tempFile.renameTo(finalFile)) {
             tempFile.copyTo(finalFile, overwrite = true)
             tempFile.delete()
+        }
+
+        if (!isApkValid(context, finalFile)) {
+            finalFile.delete()
+            throw IOException("Downloaded APK archive is corrupted or invalid")
         }
 
         Log.i(TAG, "Parallel download complete & validated at ${finalFile.absolutePath}")
@@ -627,18 +691,19 @@ object UpdateUtil {
                     throw IOException("Incomplete transfer: $downloadedBytes / $totalBytes bytes")
                 }
 
-                val archiveInfo = context.packageManager.getPackageArchiveInfo(tempFile.absolutePath, 0)
-                if (archiveInfo == null) {
-                    tempFile.delete()
-                    throw IOException("Downloaded APK archive is corrupted or invalid")
-                }
-
+                // Rename tempFile to finalFile BEFORE validating APK!
+                // Android's PackageParser strictly rejects filenames that do not end in .apk
                 if (finalFile.exists()) {
                     finalFile.delete()
                 }
                 if (!tempFile.renameTo(finalFile)) {
                     tempFile.copyTo(finalFile, overwrite = true)
                     tempFile.delete()
+                }
+
+                if (!isApkValid(context, finalFile)) {
+                    finalFile.delete()
+                    throw IOException("Downloaded APK archive is corrupted or invalid")
                 }
 
                 completed = true
@@ -671,8 +736,8 @@ object UpdateUtil {
     data class AssetsItem(
         val name: String? = null,
         @SerialName("content_type") val contentType: String? = null,
-        val size: Int? = null,
-        @SerialName("download_count") val downloadCount: Int? = null,
+        val size: Long? = null,
+        @SerialName("download_count") val downloadCount: Long? = null,
         @SerialName("created_at") val createdAt: String? = null,
         @SerialName("updated_at") val updatedAt: String? = null,
         @SerialName("browser_download_url") val browserDownloadUrl: String? = null,
