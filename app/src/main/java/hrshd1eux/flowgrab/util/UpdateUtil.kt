@@ -18,24 +18,30 @@ import hrshd1eux.flowgrab.util.FileUtil.getFileProvider
 import hrshd1eux.flowgrab.util.PreferenceUtil.getInt
 import hrshd1eux.flowgrab.util.PreferenceUtil.updateLong
 import com.yausername.youtubedl_android.YoutubeDL
+import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.RandomAccessFile
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -280,6 +286,47 @@ object UpdateUtil {
         }.getOrDefault(false)
     }
 
+    enum class SignatureMatch {
+        MATCH,
+        MISMATCH,
+        UNKNOWN
+    }
+
+    fun checkSignatureMatch(context: Context, apkFile: File): SignatureMatch {
+        return runCatching {
+            val pm = context.packageManager
+            val installedSignatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES).signatures
+            }?.map { it.toByteArray() }
+
+            if (installedSignatures.isNullOrEmpty()) return SignatureMatch.UNKNOWN
+
+            val archiveInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pm.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageArchiveInfo(apkFile.absolutePath, PackageManager.GET_SIGNATURES)
+            }
+
+            val apkSignatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                archiveInfo?.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                archiveInfo?.signatures
+            }?.map { it.toByteArray() }
+
+            if (apkSignatures.isNullOrEmpty()) return SignatureMatch.UNKNOWN
+
+            val installedHashes = installedSignatures.map { it.contentHashCode() }.toSet()
+            val apkHashes = apkSignatures.map { it.contentHashCode() }.toSet()
+
+            if (installedHashes == apkHashes) SignatureMatch.MATCH else SignatureMatch.MISMATCH
+        }.getOrDefault(SignatureMatch.UNKNOWN)
+    }
+
     fun installLatestApk(context: Context = App.context) {
         val apkFile = getLatestApk(context)
         if (!apkFile.exists() || apkFile.length() == 0L) {
@@ -293,6 +340,12 @@ object UpdateUtil {
             apkFile.delete()
             ToastUtil.makeToast(R.string.app_update_failed)
             return
+        }
+
+        val sigMatch = checkSignatureMatch(context, apkFile)
+        if (sigMatch == SignatureMatch.MISMATCH) {
+            Log.w(TAG, "Signature mismatch detected between installed app and update APK")
+            ToastUtil.makeToast("Signature mismatch: Installed build uses a different signing key. Please uninstall the debug build first.")
         }
 
         // On Android 8.0+ (Oreo, API 26+), check REQUEST_INSTALL_PACKAGES permission
@@ -320,6 +373,10 @@ object UpdateUtil {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 setDataAndType(contentUri, "application/vnd.android.package-archive")
+            }
+            val resInfoList = context.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            for (resolveInfo in resInfoList) {
+                context.grantUriPermission(resolveInfo.activityInfo.packageName, contentUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(intent)
         }.onFailure { throwable ->
@@ -350,8 +407,8 @@ object UpdateUtil {
         context: Context = App.context,
         release: Release,
     ): Flow<DownloadStatus> =
-        flow {
-            emit(DownloadStatus.Connecting)
+        channelFlow {
+            send(DownloadStatus.Connecting)
 
             val apkDir = context.getExternalFilesDir("apk")
                 ?: File(context.filesDir, "apk")
@@ -375,9 +432,9 @@ object UpdateUtil {
                 val existingVersion = existingApkInfo?.versionName.toVersion()
                 if (isValid && (existingVersion == EMPTY_VERSION || existingVersion >= targetVersion)) {
                     Log.i(TAG, "Instant install ready: Valid cached APK found at ${finalFile.absolutePath}")
-                    emit(DownloadStatus.Progress(100))
-                    emit(DownloadStatus.Finished(finalFile))
-                    return@flow
+                    send(DownloadStatus.Progress(100))
+                    send(DownloadStatus.Finished(finalFile))
+                    return@channelFlow
                 }
             }
 
@@ -409,209 +466,258 @@ object UpdateUtil {
             val targetUrl = matchedAsset?.browserDownloadUrl
                 ?: throw IllegalStateException("No compatible APK asset found in release")
 
-            Log.d(TAG, "Starting parallel download for ${matchedAsset.name} from $targetUrl")
+            Log.d(TAG, "Starting download for ${matchedAsset.name} from $targetUrl")
             NotificationUtil.notifyUpdateProgress(versionName, 0)
-            emit(DownloadStatus.Progress(0))
+            send(DownloadStatus.Progress(0))
 
-            // 3. Probe file size and Range header support with HEAD request
+            // 3. Probe file size, Range header support, and resolve direct CDN URL
             var contentLength = -1L
             var supportsRange = false
+            var directUrl = targetUrl
+
             try {
-                val headReq = Request.Builder()
+                val probeReq = Request.Builder()
                     .url(targetUrl)
                     .header("User-Agent", "FlowGrab-Android")
-                    .head()
+                    .header("Range", "bytes=0-0")
                     .build()
-                client.newCall(headReq).execute().use { headResp ->
-                    if (headResp.isSuccessful) {
-                        contentLength = headResp.header("Content-Length")?.toLongOrNull() ?: -1L
-                        val acceptRanges = headResp.header("Accept-Ranges")
+                client.newCall(probeReq).execute().use { probeResp ->
+                    directUrl = probeResp.request.url.toString()
+                    if (probeResp.code == 206) {
+                        supportsRange = true
+                        val contentRange = probeResp.header("Content-Range")
+                        contentRange?.substringAfterLast('/')?.toLongOrNull()?.let {
+                            contentLength = it
+                        }
+                    } else if (probeResp.isSuccessful) {
+                        val acceptRanges = probeResp.header("Accept-Ranges")
                         supportsRange = acceptRanges?.contains("bytes", ignoreCase = true) == true
+                        contentLength = probeResp.header("Content-Length")?.toLongOrNull() ?: -1L
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "HEAD probe failed, will attempt Range probe with GET", e)
-            }
-
-            // If HEAD didn't return Content-Length, probe with a tiny range GET (0-1)
-            if (contentLength <= 0L) {
+                Log.w(TAG, "Range probe failed, attempting HEAD request", e)
                 try {
-                    val probeReq = Request.Builder()
+                    val headReq = Request.Builder()
                         .url(targetUrl)
                         .header("User-Agent", "FlowGrab-Android")
-                        .header("Range", "bytes=0-1")
+                        .head()
                         .build()
-                    client.newCall(probeReq).execute().use { probeResp ->
-                        if (probeResp.code == 206) {
-                            supportsRange = true
-                            val contentRange = probeResp.header("Content-Range")
-                            contentRange?.substringAfterLast('/')?.toLongOrNull()?.let {
-                                contentLength = it
-                            }
+                    client.newCall(headReq).execute().use { headResp ->
+                        directUrl = headResp.request.url.toString()
+                        if (headResp.isSuccessful) {
+                            contentLength = headResp.header("Content-Length")?.toLongOrNull() ?: -1L
+                            val acceptRanges = headResp.header("Accept-Ranges")
+                            supportsRange = acceptRanges?.contains("bytes", ignoreCase = true) == true
                         }
                     }
-                } catch (e: Exception) {
-                    Log.w(TAG, "GET range probe failed", e)
+                } catch (headEx: Exception) {
+                    Log.w(TAG, "HEAD probe failed as well", headEx)
                 }
             }
 
-            Log.i(TAG, "APK size: $contentLength bytes, supportsRange: $supportsRange")
+            Log.i(TAG, "APK size: $contentLength bytes, supportsRange: $supportsRange, directUrl: $directUrl")
 
-            // 4. Execution: Parallel Chunked Download if Range is supported and file is > 4MB
+            var downloadedSuccessfully = false
+
+            // 4. Execution: Parallel Isolated Chunks if Range is supported and file is > 4MB
             if (supportsRange && contentLength > 4 * 1024 * 1024) {
-                downloadParallelChunks(
-                    context = context,
-                    targetUrl = targetUrl,
-                    contentLength = contentLength,
-                    tempFile = tempFile,
-                    finalFile = finalFile,
-                    versionName = versionName,
-                    onProgress = { percent ->
-                        emit(DownloadStatus.Progress(percent))
-                    }
-                )
-            } else {
-                // Fallback to single-connection download with Range resume
+                try {
+                    downloadParallelIsolatedChunks(
+                        context = context,
+                        targetUrl = directUrl,
+                        contentLength = contentLength,
+                        apkDir = apkDir,
+                        finalFile = finalFile,
+                        versionName = versionName,
+                    )
+                    downloadedSuccessfully = true
+                } catch (e: Exception) {
+                    Log.w(TAG, "Parallel isolated chunks failed, falling back to single stream", e)
+                    cleanChunkFiles(apkDir)
+                }
+            }
+
+            // Fallback to single-connection download if parallel wasn't attempted or failed
+            if (!downloadedSuccessfully) {
                 downloadSingleStream(
                     context = context,
-                    targetUrl = targetUrl,
+                    targetUrl = directUrl,
                     tempFile = tempFile,
                     finalFile = finalFile,
                     versionName = versionName,
-                    onProgress = { percent ->
-                        emit(DownloadStatus.Progress(percent))
-                    }
                 )
             }
 
-            emit(DownloadStatus.Finished(finalFile))
+            send(DownloadStatus.Finished(finalFile))
         }
         .flowOn(Dispatchers.IO)
         .distinctUntilChanged()
 
-    private suspend fun downloadParallelChunks(
+    private fun cleanChunkFiles(apkDir: File) {
+        runCatching {
+            apkDir.listFiles()?.forEach { file ->
+                if (file.name.startsWith("latest.apk.chunk_") || file.name == "latest.apk.temp") {
+                    file.delete()
+                }
+            }
+        }
+    }
+
+    private suspend fun ProducerScope<DownloadStatus>.downloadParallelIsolatedChunks(
         context: Context,
         targetUrl: String,
         contentLength: Long,
-        tempFile: File,
+        apkDir: File,
         finalFile: File,
         versionName: String,
-        onProgress: suspend (Int) -> Unit,
     ) {
-        val numWorkers = 6
+        val numWorkers = 4
         val chunkSize = (contentLength + numWorkers - 1) / numWorkers
-
-        RandomAccessFile(tempFile, "rw").use { raf ->
-            raf.setLength(contentLength)
-        }
-
         val downloadedBytes = AtomicLong(0L)
-        val lastEmitTime = AtomicLong(0L)
+        val chunkFiles = (0 until numWorkers).map { File(apkDir, "latest.apk.chunk_$it") }
 
-        coroutineScope {
-            val deferreds = (0 until numWorkers).map { workerIndex ->
-                async(Dispatchers.IO) {
-                    val start = workerIndex * chunkSize
-                    val end = minOf((workerIndex + 1) * chunkSize - 1, contentLength - 1)
-                    val expectedBytes = end - start + 1
+        cleanChunkFiles(apkDir)
 
-                    var success = false
-                    var attempt = 0
-                    val maxRetries = 5
-
-                    while (!success && attempt < maxRetries) {
-                        attempt++
-                        var workerWritten = 0L
-                        try {
-                            val request = Request.Builder()
-                                .url(targetUrl)
-                                .header("User-Agent", "FlowGrab-Android")
-                                .header("Range", "bytes=$start-$end")
-                                .build()
-
-                            client.newCall(request).execute().use { response ->
-                                if (response.code != 206) {
-                                    throw IOException("Worker $workerIndex received HTTP ${response.code} instead of 206 Partial Content")
-                                }
-
-                                val body = response.body
-                                    ?: throw IOException("Worker $workerIndex received empty body")
-
-                                body.byteStream().use { inputStream ->
-                                    RandomAccessFile(tempFile, "rw").use { raf ->
-                                        raf.seek(start)
-                                        val buffer = ByteArray(65_536)
-                                        var bytesRead: Int
-
-                                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                                            val toWrite = minOf(bytesRead.toLong(), expectedBytes - workerWritten).toInt()
-                                            if (toWrite <= 0) break
-
-                                            raf.write(buffer, 0, toWrite)
-                                            workerWritten += toWrite
-                                            val totalNow = downloadedBytes.addAndGet(toWrite.toLong())
-
-                                            val now = System.currentTimeMillis()
-                                            if (now - lastEmitTime.get() > 250 || totalNow >= contentLength) {
-                                                lastEmitTime.set(now)
-                                                val percent = ((totalNow * 100) / contentLength).toInt().coerceIn(0, 100)
-                                                onProgress(percent)
-                                                NotificationUtil.notifyUpdateProgress(versionName, percent)
-                                            }
-
-                                            if (workerWritten >= expectedBytes) break
-                                        }
-
-                                        if (workerWritten < expectedBytes) {
-                                            throw IOException("Worker $workerIndex incomplete: wrote $workerWritten of $expectedBytes")
-                                        }
-                                    }
-                                }
-                            }
-                            success = true
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Worker $workerIndex attempt $attempt failed: ${e.message}")
-                            downloadedBytes.addAndGet(-workerWritten)
-                            if (attempt >= maxRetries) throw e
-                            delay(1000L * attempt)
+        try {
+            coroutineScope {
+                val progressJob = launch(Dispatchers.IO) {
+                    var lastPercent = -1
+                    while (isActive) {
+                        delay(150)
+                        val totalNow = downloadedBytes.get()
+                        val percent = ((totalNow * 100) / contentLength).toInt().coerceIn(0, 100)
+                        if (percent != lastPercent) {
+                            lastPercent = percent
+                            trySend(DownloadStatus.Progress(percent))
+                            NotificationUtil.notifyUpdateProgress(versionName, percent)
                         }
                     }
                 }
+
+                try {
+                    val deferreds = (0 until numWorkers).map { workerIndex ->
+                        async(Dispatchers.IO) {
+                            val start = workerIndex * chunkSize
+                            val end = minOf((workerIndex + 1) * chunkSize - 1, contentLength - 1)
+                            val expectedBytes = end - start + 1
+                            val partFile = chunkFiles[workerIndex]
+
+                            var success = false
+                            var attempt = 0
+                            val maxRetries = 4
+
+                            while (!success && attempt < maxRetries) {
+                                attempt++
+                                var workerWritten = 0L
+                                try {
+                                    val request = Request.Builder()
+                                        .url(targetUrl)
+                                        .header("User-Agent", "FlowGrab-Android")
+                                        .header("Range", "bytes=$start-$end")
+                                        .build()
+
+                                    client.newCall(request).execute().use { response ->
+                                        if (response.code != 206) {
+                                            throw IOException("Worker $workerIndex received HTTP ${response.code} instead of 206")
+                                        }
+
+                                        val body = response.body
+                                            ?: throw IOException("Worker $workerIndex received empty body")
+
+                                        body.byteStream().use { inputStream ->
+                                            BufferedOutputStream(FileOutputStream(partFile, false), 131_072).use { outputStream ->
+                                                val buffer = ByteArray(65_536)
+                                                var bytesRead: Int
+
+                                                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                                    val toWrite = minOf(bytesRead.toLong(), expectedBytes - workerWritten).toInt()
+                                                    if (toWrite <= 0) break
+
+                                                    outputStream.write(buffer, 0, toWrite)
+                                                    workerWritten += toWrite
+                                                    downloadedBytes.addAndGet(toWrite.toLong())
+
+                                                    if (workerWritten >= expectedBytes) break
+                                                }
+                                                outputStream.flush()
+                                            }
+                                        }
+                                    }
+
+                                    if (partFile.length() != expectedBytes) {
+                                        throw IOException("Worker $workerIndex chunk size mismatch: ${partFile.length()} vs $expectedBytes")
+                                    }
+                                    success = true
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "Worker $workerIndex attempt $attempt failed: ${e.message}")
+                                    downloadedBytes.addAndGet(-workerWritten)
+                                    partFile.delete()
+                                    if (attempt >= maxRetries) throw e
+                                    delay(1000L * attempt)
+                                }
+                            }
+                        }
+                    }
+
+                    deferreds.awaitAll()
+                } finally {
+                    progressJob.cancel()
+                }
             }
 
-            deferreds.awaitAll()
-        }
+            // Concatenate all isolated chunk files into finalFile
+            val tempMergedFile = File(apkDir, "latest.apk.temp")
+            if (tempMergedFile.exists()) tempMergedFile.delete()
 
-        if (tempFile.length() != contentLength) {
-            tempFile.delete()
-            throw IOException("File size mismatch after parallel download: ${tempFile.length()} vs $contentLength")
-        }
+            FileOutputStream(tempMergedFile).channel.use { outChannel ->
+                for (chunkFile in chunkFiles) {
+                    if (!chunkFile.exists() || chunkFile.length() == 0L) {
+                        throw IOException("Chunk file ${chunkFile.name} is missing or empty")
+                    }
+                    FileInputStream(chunkFile).channel.use { inChannel ->
+                        var transferred = 0L
+                        val size = inChannel.size()
+                        while (transferred < size) {
+                            val bytes = inChannel.transferTo(transferred, size - transferred, outChannel)
+                            if (bytes <= 0) break
+                            transferred += bytes
+                        }
+                    }
+                    chunkFile.delete()
+                }
+            }
 
-        // Rename tempFile to finalFile BEFORE validating APK!
-        // Android's PackageParser strictly rejects filenames that do not end in .apk
-        if (finalFile.exists()) {
-            finalFile.delete()
-        }
-        if (!tempFile.renameTo(finalFile)) {
-            tempFile.copyTo(finalFile, overwrite = true)
-            tempFile.delete()
-        }
+            if (tempMergedFile.length() != contentLength) {
+                tempMergedFile.delete()
+                throw IOException("Merged file size mismatch: ${tempMergedFile.length()} vs $contentLength")
+            }
 
-        if (!isApkValid(context, finalFile)) {
-            finalFile.delete()
-            throw IOException("Downloaded APK archive is corrupted or invalid")
-        }
+            if (finalFile.exists()) finalFile.delete()
+            if (!tempMergedFile.renameTo(finalFile)) {
+                tempMergedFile.copyTo(finalFile, overwrite = true)
+                tempMergedFile.delete()
+            }
 
-        Log.i(TAG, "Parallel download complete & validated at ${finalFile.absolutePath}")
+            if (!isApkValid(context, finalFile)) {
+                finalFile.delete()
+                throw IOException("Downloaded APK archive is corrupted or invalid")
+            }
+
+            send(DownloadStatus.Progress(100))
+            NotificationUtil.notifyUpdateProgress(versionName, 100)
+            Log.i(TAG, "Parallel isolated chunks download complete & validated at ${finalFile.absolutePath}")
+        } finally {
+            chunkFiles.forEach { if (it.exists()) it.delete() }
+        }
     }
 
-    private suspend fun downloadSingleStream(
+    private suspend fun ProducerScope<DownloadStatus>.downloadSingleStream(
         context: Context,
         targetUrl: String,
         tempFile: File,
         finalFile: File,
         versionName: String,
-        onProgress: suspend (Int) -> Unit,
     ) {
         val maxRetries = 5
         var attempt = 0
@@ -641,8 +747,10 @@ object UpdateUtil {
                 }
 
                 if (!response.isSuccessful) {
+                    val code = responseCode
+                    val msg = response.message
                     response.close()
-                    throw IOException("HTTP error $responseCode: ${response.message}")
+                    throw IOException("HTTP error $code: $msg")
                 }
 
                 val responseBody = response.body
@@ -657,7 +765,7 @@ object UpdateUtil {
                 val totalBytes = if (remainingBytes > 0) downloadedBytes + remainingBytes else -1L
 
                 responseBody.byteStream().use { inputStream ->
-                    FileOutputStream(tempFile, isAppend).use { outputStream ->
+                    BufferedOutputStream(FileOutputStream(tempFile, isAppend), 131_072).use { outputStream ->
                         val buffer = ByteArray(65_536)
                         var lastEmitTime = 0L
 
@@ -671,15 +779,15 @@ object UpdateUtil {
                             val now = System.currentTimeMillis()
                             if (totalBytes > 0) {
                                 val percent = ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
-                                if (now - lastEmitTime > 250 || percent == 100) {
+                                if (now - lastEmitTime > 200 || percent == 100) {
                                     lastEmitTime = now
-                                    onProgress(percent)
+                                    trySend(DownloadStatus.Progress(percent))
                                     NotificationUtil.notifyUpdateProgress(versionName, percent)
                                 }
                             } else {
                                 if (now - lastEmitTime > 500) {
                                     lastEmitTime = now
-                                    onProgress(-1)
+                                    trySend(DownloadStatus.Progress(-1))
                                 }
                             }
                         }
@@ -691,8 +799,6 @@ object UpdateUtil {
                     throw IOException("Incomplete transfer: $downloadedBytes / $totalBytes bytes")
                 }
 
-                // Rename tempFile to finalFile BEFORE validating APK!
-                // Android's PackageParser strictly rejects filenames that do not end in .apk
                 if (finalFile.exists()) {
                     finalFile.delete()
                 }
@@ -706,6 +812,8 @@ object UpdateUtil {
                     throw IOException("Downloaded APK archive is corrupted or invalid")
                 }
 
+                send(DownloadStatus.Progress(100))
+                NotificationUtil.notifyUpdateProgress(versionName, 100)
                 completed = true
             } catch (e: Exception) {
                 Log.w(TAG, "Single-stream attempt $attempt failed: ${e.message}")

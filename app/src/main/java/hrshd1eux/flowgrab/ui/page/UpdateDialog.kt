@@ -3,6 +3,7 @@ package hrshd1eux.flowgrab.ui.page
 import android.os.Build
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -10,8 +11,10 @@ import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -80,6 +83,7 @@ fun UpdateDialogImpl(
                             else stringResource(R.string.downloading_indicator_text)
                         }
                         is UpdateUtil.DownloadStatus.Finished -> stringResource(R.string.install)
+                        is UpdateUtil.DownloadStatus.Failed -> "Retry"
                         else -> stringResource(R.string.update)
                     },
                     modifier = Modifier.animateContentSize(),
@@ -91,7 +95,19 @@ fun UpdateDialogImpl(
                 Text(text = stringResource(id = R.string.dismiss))
             }
         },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(releaseNote) } },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                if (downloadStatus is UpdateUtil.DownloadStatus.Failed) {
+                    Text(
+                        text = "Error: ${downloadStatus.error}",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+                Text(releaseNote)
+            }
+        },
     )
 }
 
