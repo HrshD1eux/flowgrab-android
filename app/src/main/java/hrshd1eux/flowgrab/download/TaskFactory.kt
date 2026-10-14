@@ -75,7 +75,7 @@ object TaskFactory {
                 downloadState = ReadyWithInfo,
                 videoInfo = info,
                 viewState =
-                    Task.ViewState.fromVideoInfo(info = info)
+                    Task.ViewState.fromVideoInfo(info = info, preferences = preferences)
                         .copy(videoFormats = videoFormats, audioOnlyFormats = audioOnlyFormats),
             )
 

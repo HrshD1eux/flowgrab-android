@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import org.koin.core.component.KoinComponent
 
 private const val TAG = "DownloaderV2"
@@ -156,7 +157,17 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                                 preState
                             }
                         }
-                    state.copy(downloadState = downloadState)
+                    var updatedViewState = state.viewState
+                    if (downloadState is Completed) {
+                        val path = downloadState.filePath
+                        if (!path.isNullOrBlank()) {
+                            val f = File(path)
+                            if (f.exists() && f.length() > 0L) {
+                                updatedViewState = updatedViewState.copy(fileSizeApprox = f.length().toDouble())
+                            }
+                        }
+                    }
+                    state.copy(downloadState = downloadState, viewState = updatedViewState)
                 }
         taskList.forEach(::enqueue)
     }
@@ -334,7 +345,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                     .onSuccess {
                         info = it
                         downloadState = ReadyWithInfo
-                        viewState = Task.ViewState.fromVideoInfo(it)
+                        viewState = Task.ViewState.fromVideoInfo(it, preferences)
                     }
                     .onFailure { throwable ->
                         Log.e(TAG, "Task ${task.id} (${task.url}) fetchInfo failed", throwable)
@@ -392,6 +403,10 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         downloadState = Completed(completedPath)
 
                         if (!completedPath.isNullOrBlank()) {
+                            val actualFile = File(completedPath)
+                            if (actualFile.exists() && actualFile.length() > 0L) {
+                                viewState = viewState.copy(fileSizeApprox = actualFile.length().toDouble())
+                            }
                             runCatching {
                                 DatabaseUtil.insertInfo(
                                     DownloadedVideoInfo(

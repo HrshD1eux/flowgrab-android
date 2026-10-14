@@ -138,7 +138,10 @@ data class Task(
         val audioOnlyFormats: List<Format>? = null,
     ) {
         companion object {
-            fun fromVideoInfo(info: VideoInfo): ViewState {
+            fun fromVideoInfo(
+                info: VideoInfo,
+                preferences: DownloadUtil.DownloadPreferences? = null,
+            ): ViewState {
                 val formats =
                     info.requestedFormats
                         ?: info.requestedDownloads?.map { it.toFormat() }
@@ -147,6 +150,33 @@ data class Task(
                 val videoFormats = formats.filter { it.containsVideo() }
                 val audioOnlyFormats = formats.filter { it.isAudioOnly() }
 
+                val isAudioOnly = preferences?.extractAudio == true ||
+                    (audioOnlyFormats.isNotEmpty() && videoFormats.isEmpty())
+
+                val estimatedSize: Double = if (isAudioOnly) {
+                    val allAudio = (info.formats ?: emptyList()).filter { it.isAudioOnly() }
+                    val targetFormat = preferences?.formatIdString?.let { fid ->
+                        allAudio.find { it.formatId == fid }
+                    } ?: (info.requestedFormats ?: emptyList()).find { it.isAudioOnly() }
+                      ?: audioOnlyFormats.firstOrNull()
+                      ?: allAudio.maxByOrNull { it.abr ?: it.tbr ?: 0.0 }
+
+                    val duration = info.duration ?: 0.0
+                    val calcSize = targetFormat?.fileSize
+                        ?: targetFormat?.fileSizeApprox
+                        ?: if (duration > 0.0) {
+                            val bitrate = targetFormat?.abr ?: targetFormat?.tbr ?: 128.0
+                            (bitrate * 1000.0 / 8.0) * duration
+                        } else null
+
+                    calcSize ?: (if (duration > 0.0) (16_000.0 * duration) else null)
+                             ?: info.fileSize
+                             ?: info.fileSizeApprox
+                             ?: .0
+                } else {
+                    info.fileSize ?: info.fileSizeApprox ?: .0
+                }
+
                 return ViewState(
                     url = info.originalUrl.toString(),
                     title = info.title,
@@ -154,7 +184,7 @@ data class Task(
                     extractorKey = info.extractorKey,
                     duration = info.duration?.roundToInt() ?: 0,
                     thumbnailUrl = info.thumbnail.toHttpsUrl(),
-                    fileSizeApprox = info.fileSize ?: info.fileSizeApprox ?: .0,
+                    fileSizeApprox = estimatedSize,
                     videoFormats = videoFormats,
                     audioOnlyFormats = audioOnlyFormats,
                 )

@@ -1,6 +1,7 @@
 package hrshd1eux.flowgrab.ui.page.downloadv2
 
 import android.content.Intent
+import java.io.File
 import android.content.res.Configuration
 import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.animateTo
@@ -498,27 +499,38 @@ fun DownloadPageImplV2(
                                 filteredMap.toList().sortedBy { (_, state) -> state.downloadState },
                             key = { (task, _) -> task.id },
                         ) { (task, state) ->
-                            with(state.viewState) {
-                                VideoCardV2(
-                                    modifier = Modifier.padding(bottom = 20.dp).padding(),
-                                    viewState = this,
-                                    actionButton = {
-                                        ActionButton(
-                                            modifier = Modifier,
-                                            downloadState = state.downloadState,
-                                        ) {
-                                            onActionPost(task, it)
-                                        }
-                                    },
-                                    stateIndicator = {
-                                        CardStateIndicator(
-                                            modifier = Modifier,
-                                            downloadState = state.downloadState,
-                                        )
-                                    },
-                                    onButtonClick = { showActionSheet(task) },
-                                )
+                            val effectiveViewState = remember(state.downloadState, state.viewState) {
+                                val completedPath = (state.downloadState as? Completed)?.filePath
+                                if (!completedPath.isNullOrBlank()) {
+                                    val file = File(completedPath)
+                                    if (file.exists() && file.length() > 0L) {
+                                        state.viewState.copy(fileSizeApprox = file.length().toDouble())
+                                    } else {
+                                        state.viewState
+                                    }
+                                } else {
+                                    state.viewState
+                                }
                             }
+                            VideoCardV2(
+                                modifier = Modifier.padding(bottom = 20.dp).padding(),
+                                viewState = effectiveViewState,
+                                actionButton = {
+                                    ActionButton(
+                                        modifier = Modifier,
+                                        downloadState = state.downloadState,
+                                    ) {
+                                        onActionPost(task, it)
+                                    }
+                                },
+                                stateIndicator = {
+                                    CardStateIndicator(
+                                        modifier = Modifier,
+                                        downloadState = state.downloadState,
+                                    )
+                                },
+                                onButtonClick = { showActionSheet(task) },
+                            )
                         }
                     } else {
                         items(
@@ -527,9 +539,22 @@ fun DownloadPageImplV2(
                             key = { (task, _) -> task.id },
                             span = { GridItemSpan(maxLineSpan) },
                         ) { (task, state) ->
+                            val effectiveViewState = remember(state.downloadState, state.viewState) {
+                                val completedPath = (state.downloadState as? Completed)?.filePath
+                                if (!completedPath.isNullOrBlank()) {
+                                    val file = File(completedPath)
+                                    if (file.exists() && file.length() > 0L) {
+                                        state.viewState.copy(fileSizeApprox = file.length().toDouble())
+                                    } else {
+                                        state.viewState
+                                    }
+                                } else {
+                                    state.viewState
+                                }
+                            }
                             VideoListItem(
                                 modifier = Modifier.padding(bottom = 16.dp),
-                                viewState = state.viewState,
+                                viewState = effectiveViewState,
                                 stateIndicator = {
                                     ListItemStateText(
                                         modifier = Modifier.padding(top = 3.dp),
@@ -555,6 +580,19 @@ fun DownloadPageImplV2(
     if (selectedTask != null) {
         val task = selectedTask!!
         val (downloadState, _, viewState) = taskDownloadStateMap[task] ?: return
+        val effectiveSheetViewState = remember(downloadState, viewState) {
+            val completedPath = (downloadState as? Completed)?.filePath
+            if (!completedPath.isNullOrBlank()) {
+                val file = File(completedPath)
+                if (file.exists() && file.length() > 0L) {
+                    viewState.copy(fileSizeApprox = file.length().toDouble())
+                } else {
+                    viewState
+                }
+            } else {
+                viewState
+            }
+        }
         SealModalBottomSheet(
             sheetState = sheetState,
             contentPadding = PaddingValues(),
@@ -565,7 +603,7 @@ fun DownloadPageImplV2(
             SheetContent(
                 task = task,
                 downloadState = downloadState,
-                viewState = viewState,
+                viewState = effectiveSheetViewState,
                 onDismissRequest = {
                     scope.launch { sheetState.hide() }.invokeOnCompletion { selectedTask = null }
                 },
