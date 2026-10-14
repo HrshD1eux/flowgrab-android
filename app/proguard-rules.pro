@@ -26,9 +26,8 @@
 
 -keep class com.yausername.** { *; }
 -keep class io.github.junkfood02.** { *; }
--keep class hrshd1eux.flowgrab.util.** { *; }
--keep class hrshd1eux.flowgrab.database.** { *; }
--keep class hrshd1eux.flowgrab.download.** { *; }
+-keep class hrshd1eux.flowgrab.** { *; }
+-keep interface hrshd1eux.flowgrab.** { *; }
 -keep class org.apache.commons.compress.archivers.zip.** { *; }
 
 # Keep `Companion` object fields of serializable classes.

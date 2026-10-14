@@ -179,7 +179,8 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
             msg.contains("the page needs to be reloaded") ||
             msg.contains("unsupported client") ||
             msg.contains("unplayable") ||
-            msg.contains("video unavailable")
+            msg.contains("video unavailable") ||
+            msg.contains("requested format is not available")
     }
 
     private fun autoHealAndRetry(task: Task, action: Task.RestartableAction) {

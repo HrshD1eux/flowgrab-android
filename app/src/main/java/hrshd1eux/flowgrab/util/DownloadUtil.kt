@@ -100,10 +100,6 @@ object DownloadUtil {
                 addOption("--no-warnings")
                 applyClientExtractorArgs()
                 downloadPreferences.run {
-                    if (extractAudio) {
-                        addOption("-x")
-                    }
-                    applyFormatSorter(this, toFormatSorter())
                     if (proxy) {
                         enableProxy(proxyUrl)
                     }
@@ -179,10 +175,6 @@ object DownloadUtil {
                     if (restrictFilenames) {
                         addOption("--restrict-filenames")
                     }
-                    if (extractAudio) {
-                        addOption("-x")
-                    }
-                    applyFormatSorter(this@with, toFormatSorter())
                     if (cookies) {
                         enableCookies(userAgentString)
                     }
@@ -218,12 +210,12 @@ object DownloadUtil {
 
             // If primary YouTube extraction fails (e.g., player client blocked), attempt fallback client
             if (res.isFailure && url.contains("youtu", ignoreCase = true)) {
-                Log.w(TAG, "Primary extractor attempt failed for $url, retrying with iOS client fallback...")
+                Log.w(TAG, "Primary extractor attempt failed for $url, retrying with visionos/mweb client fallback...")
                 val fallbackArgs =
                     if (autoSubtitle && !autoTranslatedSubtitles) {
-                        "player_client=ios,web;player_skip=configs,webpage;skip=translated_subs"
+                        "player_client=visionos,mweb;skip=translated_subs"
                     } else {
-                        "player_client=ios,web;player_skip=configs,webpage"
+                        "player_client=visionos,mweb"
                     }
                 val fallbackRequest = buildRequest(fallbackArgs)
                 val fallbackRes = getVideoInfo(fallbackRequest, taskKey)
@@ -492,13 +484,12 @@ object DownloadUtil {
         autoTranslatedSubtitles: Boolean = false,
     ): YoutubeDLRequest = apply {
         val args = mutableListOf<String>()
-        // Pass player_client spoofing and skip configs to avoid YouTube botguard/login-required errors
-        args.add("player_client=android_creator,android,ios,web")
-        args.add("player_skip=configs,webpage")
         if (autoSubtitle && !autoTranslatedSubtitles) {
             args.add("skip=translated_subs")
         }
-        addOption("--extractor-args", "youtube:${args.joinToString(";")}")
+        if (args.isNotEmpty()) {
+            addOption("--extractor-args", "youtube:${args.joinToString(";")}")
+        }
     }
 
     private fun YoutubeDLRequest.enableAria2c(): YoutubeDLRequest =
@@ -514,11 +505,12 @@ object DownloadUtil {
                 addOption("--no-embed-info-json")
                 addOption("--postprocessor-args", "Merger:-c:v copy -c:a copy")
                 if (formatIdString.isNotEmpty()) {
-                    addOption("-f", formatIdString)
+                    addOption("-f", "$formatIdString/bv*+ba/b/best")
                     if (mergeAudioStream) {
                         addOption("--audio-multistreams")
                     }
                 } else {
+                    addOption("-f", "bv*+ba/b/best")
                     applyFormatSorter(this, toFormatSorter())
                 }
                 if (downloadSubtitle) {
@@ -670,11 +662,12 @@ object DownloadUtil {
                 }
                 applyClientExtractorArgs(autoSubtitle, autoTranslatedSubtitles)
                 if (formatIdString.isNotEmpty()) {
-                    addOption("-f", formatIdString)
+                    addOption("-f", "$formatIdString/ba/b")
                     if (mergeAudioStream) {
                         addOption("--audio-multistreams")
                     }
                 } else if (convertAudio) {
+                    addOption("-f", "ba/b")
                     when (audioConvertFormat) {
                         CONVERT_MP3 -> {
                             addOption("--audio-format", "mp3")
@@ -702,6 +695,7 @@ object DownloadUtil {
                         }
                     }
                 } else {
+                    addOption("-f", "ba/b")
                     applyFormatSorter(preferences, toAudioFormatSorter())
                 }
 

@@ -89,6 +89,12 @@ class App : Application() {
                 YoutubeDL.init(this@App)
                 FFmpeg.init(this@App)
                 Aria2c.init(this@App)
+                runCatching {
+                    val ver = YoutubeDL.getInstance().version(this@App)
+                    if (!ver.isNullOrBlank()) {
+                        PreferenceUtil.encodeString(YT_DLP_VERSION, ver)
+                    }
+                }
                 initializationDeferred.complete(true)
                 DownloadUtil.getCookiesContentFromDatabase().getOrNull()?.let {
                     FileUtil.writeContentToFile(it, getCookiesFile())
@@ -227,11 +233,14 @@ class App : Application() {
                 } else {
                     Build.VERSION.RELEASE
                 }
+            val ytdlpVersion = YT_DLP_VERSION.getString().ifEmpty {
+                runCatching { YoutubeDL.getInstance().version(context) }.getOrNull().orEmpty()
+            }
             return StringBuilder()
                 .append("App version: $versionName ($versionCode)\n")
                 .append("Device information: Android $release (API ${Build.VERSION.SDK_INT})\n")
                 .append("Supported ABIs: ${Build.SUPPORTED_ABIS.contentToString()}\n")
-                .append("Yt-dlp version: ${YT_DLP_VERSION.getString()}\n")
+                .append("Yt-dlp version: $ytdlpVersion\n")
                 .toString()
         }
 
