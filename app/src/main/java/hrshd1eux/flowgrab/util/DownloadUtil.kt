@@ -906,37 +906,6 @@ object DownloadUtil {
 
                     for (s in request.buildCommand()) Log.d(TAG, s)
                 }
-
-            val isAudio = extractAudio || (videoInfo.vcodec == "none")
-            val targetDir = if (sdcard) context.getSdcardTempDir(videoInfo.id).absolutePath else pathBuilder.toString()
-            val existingCandidates = FileUtil.scanFileToMediaLibraryPostDownload(
-                title = newTitle.ifEmpty { videoInfo.filename ?: videoInfo.requestedDownloads?.firstOrNull()?.filename ?: videoInfo.title },
-                downloadDir = targetDir,
-                isAudioOnly = isAudio,
-                videoId = videoInfo.id,
-            ).filter { path ->
-                val f = File(path)
-                f.exists() && f.length() > 1024L &&
-                    !f.name.endsWith(".part", ignoreCase = true) &&
-                    !f.name.endsWith(".ytdl", ignoreCase = true)
-            }
-
-            val tempDir = if (sdcard) context.getSdcardTempDir(videoInfo.id) else getExternalTempDir()
-            val hasPartFile = tempDir.listFiles()?.any { tempFile -> tempFile.name.contains(videoInfo.id, ignoreCase = true) && (tempFile.name.endsWith(".part", ignoreCase = true) || tempFile.name.endsWith(".ytdl", ignoreCase = true)) } == true ||
-                File(targetDir).listFiles()?.any { targetFile -> targetFile.name.contains(videoInfo.id, ignoreCase = true) && (targetFile.name.endsWith(".part", ignoreCase = true) || targetFile.name.endsWith(".ytdl", ignoreCase = true)) } == true
-
-            if (existingCandidates.isNotEmpty() && !hasPartFile) {
-                Log.i(TAG, "Target media file already exists and is complete: $existingCandidates. Skipping re-download.")
-                progressCallback?.invoke(100f, 0L, "100%")
-                return onFinishDownloading(
-                    preferences = this,
-                    videoInfo = videoInfo,
-                    downloadPath = pathBuilder.toString(),
-                    sdcardUri = sdcardUri,
-                )
-            }
-
-            request
                 .runCatching {
                     if (!App.isInitialized()) {
                         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
@@ -960,6 +929,14 @@ object DownloadUtil {
                             sdcardUri = sdcardUri,
                         )
                     }
+
+                    val isCancelled = th is YoutubeDL.CanceledException ||
+                        th is kotlinx.coroutines.CancellationException ||
+                        th.message?.contains("destroy", ignoreCase = true) == true ||
+                        th.message?.contains("cancel", ignoreCase = true) == true ||
+                        th.message?.contains("143", ignoreCase = true) == true ||
+                        th.message?.contains("SIGTERM", ignoreCase = true) == true
+                    if (isCancelled) return Result.failure(th)
 
                     val fallbackResult = runCatching {
                         onFinishDownloading(

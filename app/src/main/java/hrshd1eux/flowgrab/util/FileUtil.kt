@@ -143,6 +143,14 @@ object FileUtil {
 
         val matchingFiles =
             dir.walkTopDown()
+                .onEnter { subDir ->
+                    // Never traverse into Audio subdirectory when scanning for video downloads
+                    if (!isAudioOnly && subDir.name.equals("Audio", ignoreCase = true)) {
+                        false
+                    } else {
+                        true
+                    }
+                }
                 .filter { file ->
                     file.isFile &&
                         file.length() > 0L &&
@@ -163,29 +171,8 @@ object FileUtil {
                 .map { it.absolutePath }
                 .toList()
 
-        val finalFiles =
-            if (matchingFiles.isNotEmpty()) {
-                matchingFiles
-            } else {
-                dir.walkTopDown()
-                    .filter { file ->
-                        file.isFile &&
-                            file.length() > 0L &&
-                            matchesMedia(file.name) &&
-                            !file.name.contains(Regex(THUMBNAIL_REGEX, RegexOption.IGNORE_CASE)) &&
-                            !file.name.contains(Regex(SUBTITLE_REGEX, RegexOption.IGNORE_CASE)) &&
-                            !file.name.endsWith(".part", ignoreCase = true) &&
-                            !file.name.endsWith(".ytdl", ignoreCase = true) &&
-                            !file.name.endsWith(".temp", ignoreCase = true) &&
-                            !file.name.endsWith(".aria2", ignoreCase = true)
-                    }
-                    .sortedByDescending { it.lastModified() }
-                    .map { it.absolutePath }
-                    .toList()
-            }
-
-        MediaScannerConnection.scanFile(context, finalFiles.toTypedArray(), null, null)
-        return finalFiles
+        MediaScannerConnection.scanFile(context, matchingFiles.toTypedArray(), null, null)
+        return matchingFiles
     }
 
     fun scanDownloadDirectoryToMediaLibrary(downloadDir: String) =
