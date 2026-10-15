@@ -138,6 +138,7 @@ import hrshd1eux.flowgrab.util.COOKIES
 import hrshd1eux.flowgrab.util.CUSTOM_COMMAND
 import hrshd1eux.flowgrab.util.DatabaseUtil
 import hrshd1eux.flowgrab.util.DownloadType
+import hrshd1eux.flowgrab.util.InstantPreviewUtil
 import hrshd1eux.flowgrab.util.HIGH
 import hrshd1eux.flowgrab.util.RES_1080P
 import hrshd1eux.flowgrab.util.RES_1440P
@@ -864,27 +865,42 @@ private fun ConfigurePage(
     var fetchedVideoInfo by remember(firstUrl) {
         mutableStateOf(firstUrl?.let { DownloadUtil.getCachedVideoInfo(it) })
     }
+    var instantPreview by remember(firstUrl) {
+        mutableStateOf(firstUrl?.let { InstantPreviewUtil.getCached(it) })
+    }
     var isFetchingInfo by remember(firstUrl) {
         mutableStateOf(fetchedVideoInfo == null && !firstUrl.isNullOrBlank())
     }
 
     LaunchedEffect(firstUrl) {
-        if (!firstUrl.isNullOrBlank() && fetchedVideoInfo == null) {
-            isFetchingInfo = true
-            withContext(Dispatchers.IO) {
-                DownloadUtil.fetchVideoInfoFromUrl(
-                    url = firstUrl,
-                    preferences = preferences,
-                    taskKey = "ConfigureSize_${firstUrl.hashCode()}",
-                ).onSuccess { info ->
-                    withContext(Dispatchers.Main) {
-                        fetchedVideoInfo = info
+        if (!firstUrl.isNullOrBlank()) {
+            if (instantPreview == null && fetchedVideoInfo == null) {
+                launch {
+                    val preview = InstantPreviewUtil.fetchInstantPreview(firstUrl)
+                    if (preview != null && fetchedVideoInfo == null) {
+                        instantPreview = preview
                     }
                 }
             }
-            isFetchingInfo = false
+            if (fetchedVideoInfo == null) {
+                isFetchingInfo = true
+                withContext(Dispatchers.IO) {
+                    DownloadUtil.fetchVideoInfoFromUrl(
+                        url = firstUrl,
+                        preferences = preferences,
+                        taskKey = "ConfigureSize_${firstUrl.hashCode()}",
+                    ).onSuccess { info ->
+                        withContext(Dispatchers.Main) {
+                            fetchedVideoInfo = info
+                        }
+                    }
+                }
+                isFetchingInfo = false
+            }
         }
     }
+
+    val displayInfo = fetchedVideoInfo ?: instantPreview?.toVideoInfo()
 
     val loadingSizeText = if (isFetchingInfo) "Calculating..." else ""
 
@@ -952,8 +968,8 @@ private fun ConfigurePage(
                 }
             }
 
-            if (fetchedVideoInfo != null) {
-                val info = fetchedVideoInfo!!
+            if (displayInfo != null) {
+                val info = displayInfo
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -999,6 +1015,21 @@ private fun ConfigurePage(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
+                            }
+                            if (isFetchingInfo) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(10.dp),
+                                        strokeWidth = 1.5.dp,
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Resolving stream formats & sizes...",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
                             }
                         }
                     }
