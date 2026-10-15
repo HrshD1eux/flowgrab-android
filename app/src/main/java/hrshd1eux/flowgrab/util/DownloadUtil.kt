@@ -74,7 +74,7 @@ object DownloadUtil {
     private const val PLAYLIST_TITLE_SUBDIRECTORY_PREFIX = "%(playlist)s/"
 
     private const val CROP_ARTWORK_COMMAND =
-        """--ppa "ffmpeg: -c:v mjpeg -vf crop=\"'if(gt(ih,iw),iw,ih)':'if(gt(iw,ih),ih,iw)'\"""""
+        """--ppa "ThumbnailsConvertor: -c:v mjpeg -vf crop=\"'min(iw,ih)':'min(iw,ih)'\"""""
 
     @CheckResult
     fun getPlaylistOrVideoInfo(
@@ -513,7 +513,7 @@ object DownloadUtil {
             downloadPreferences.run {
                 addOption("--add-metadata")
                 addOption("--no-embed-info-json")
-                addOption("--postprocessor-args", "Merger:-c:v copy -c:a copy")
+                addOption("--postprocessor-args", "Merger:-c:v copy -c:a copy -avoid_negative_ts make_zero")
                 if (formatIdString.isNotEmpty()) {
                     addOption("-f", "$formatIdString/bv*+ba/b/best")
                     if (mergeAudioStream) {
@@ -532,9 +532,6 @@ object DownloadUtil {
                         ?.let { addOption("--sub-langs", it) }
                     if (embedSubtitle) {
                         addOption("--embed-subs")
-                        if (keepSubtitle) {
-                            addOption("--write-subs")
-                        }
                     } else {
                         addOption("--write-subs")
                     }
@@ -549,20 +546,16 @@ object DownloadUtil {
                 applyClientExtractorArgs(autoSubtitle, autoTranslatedSubtitles)
                 when (videoContainerFormat.lowercase()) {
                     "mp4" -> {
-                        addOption("--remux-video", "mp4")
                         addOption("--merge-output-format", "mp4")
                     }
                     "mkv" -> {
-                        addOption("--remux-video", "mkv")
                         addOption("--merge-output-format", "mkv")
                     }
                     "webm" -> {
-                        addOption("--remux-video", "webm")
                         addOption("--merge-output-format", "webm")
                     }
                     else -> {
                         if (mergeToMkv) {
-                            addOption("--remux-video", "mkv")
                             addOption("--merge-output-format", "mkv")
                         }
                     }

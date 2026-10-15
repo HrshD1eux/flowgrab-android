@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
@@ -28,6 +29,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -156,6 +158,14 @@ object UpdateUtil {
         downloadStatus.value = DownloadStatus.Connecting
         val versionName = (release.name?.takeIf { it.isNotBlank() } ?: release.tagName ?: "Update").toString()
 
+        App.startService()
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val wakeLock = runCatching {
+            powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FlowGrab:UpdateWakeLock")?.apply {
+                acquire(15 * 60 * 1000L /* 15 mins max */)
+            }
+        }.getOrNull()
+
         applicationScope.launch(Dispatchers.IO) {
             try {
                 downloadApk(context, release).collect { status ->
@@ -185,6 +195,11 @@ object UpdateUtil {
                 if (!silent) {
                     ToastUtil.makeToastSuspend(context.getString(R.string.app_update_failed))
                 }
+            } finally {
+                runCatching {
+                    if (wakeLock?.isHeld == true) wakeLock.release()
+                }
+                App.stopService()
             }
         }
     }
@@ -536,8 +551,8 @@ object UpdateUtil {
                     )
                     downloadedSuccessfully = true
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.w(TAG, "Parallel isolated chunks failed, falling back to single stream", e)
-                    cleanChunkFiles(apkDir)
                 }
             }
 
@@ -560,7 +575,7 @@ object UpdateUtil {
     private fun cleanChunkFiles(apkDir: File) {
         runCatching {
             apkDir.listFiles()?.forEach { file ->
-                if (file.name.startsWith("latest.apk.chunk_") || file.name == "latest.apk.temp") {
+                if (file.name.startsWith("latest.apk.chunk_") || file.name == "latest.apk.temp" || file.name == "latest.apk.part") {
                     file.delete()
                 }
             }
@@ -579,140 +594,189 @@ object UpdateUtil {
         val chunkSize = (contentLength + numWorkers - 1) / numWorkers
         val downloadedBytes = AtomicLong(0L)
         val chunkFiles = (0 until numWorkers).map { File(apkDir, "latest.apk.chunk_$it") }
+        val metaFile = File(apkDir, "latest.apk.meta")
+        val targetMeta = "$targetUrl\n$contentLength"
 
-        cleanChunkFiles(apkDir)
+        val metaMatches = metaFile.exists() && runCatching { metaFile.readText().trim() == targetMeta.trim() }.getOrDefault(false)
+        if (!metaMatches) {
+            cleanChunkFiles(apkDir)
+            runCatching { metaFile.writeText(targetMeta) }
+        }
 
-        try {
-            coroutineScope {
-                val progressJob = launch(Dispatchers.IO) {
-                    var lastPercent = -1
-                    while (isActive) {
-                        delay(150)
-                        val totalNow = downloadedBytes.get()
-                        val percent = ((totalNow * 100) / contentLength).toInt().coerceIn(0, 100)
-                        if (percent != lastPercent) {
-                            lastPercent = percent
-                            trySend(DownloadStatus.Progress(percent))
-                            NotificationUtil.notifyUpdateProgress(versionName, percent)
-                        }
+        // 1. Calculate bytes already safely persisted to disk across existing chunks
+        var initialDownloaded = 0L
+        for (i in 0 until numWorkers) {
+            val partFile = chunkFiles[i]
+            val start = i * chunkSize
+            val end = minOf((i + 1) * chunkSize - 1, contentLength - 1)
+            val expected = end - start + 1
+            if (partFile.exists()) {
+                val len = partFile.length()
+                if (len in 1..expected) {
+                    initialDownloaded += len
+                } else if (len > expected) {
+                    partFile.delete()
+                }
+            }
+        }
+        downloadedBytes.set(initialDownloaded)
+        if (initialDownloaded > 0) {
+            val initialPercent = ((initialDownloaded * 100) / contentLength).toInt().coerceIn(0, 99)
+            Log.i(TAG, "Resuming parallel isolated chunks from $initialDownloaded bytes ($initialPercent%)")
+            trySend(DownloadStatus.Progress(initialPercent))
+            NotificationUtil.notifyUpdateProgress(versionName, initialPercent)
+        }
+
+        coroutineScope {
+            val progressJob = launch(Dispatchers.IO) {
+                var lastPercent = -1
+                while (isActive) {
+                    delay(150)
+                    val totalNow = downloadedBytes.get()
+                    val percent = ((totalNow * 100) / contentLength).toInt().coerceIn(0, 100)
+                    if (percent != lastPercent) {
+                        lastPercent = percent
+                        trySend(DownloadStatus.Progress(percent))
+                        NotificationUtil.notifyUpdateProgress(versionName, percent)
                     }
                 }
+            }
 
-                try {
-                    val deferreds = (0 until numWorkers).map { workerIndex ->
-                        async(Dispatchers.IO) {
-                            val start = workerIndex * chunkSize
-                            val end = minOf((workerIndex + 1) * chunkSize - 1, contentLength - 1)
-                            val expectedBytes = end - start + 1
-                            val partFile = chunkFiles[workerIndex]
+            try {
+                val deferreds = (0 until numWorkers).map { workerIndex ->
+                    async(Dispatchers.IO) {
+                        val start = workerIndex * chunkSize
+                        val end = minOf((workerIndex + 1) * chunkSize - 1, contentLength - 1)
+                        val expectedBytes = end - start + 1
+                        val partFile = chunkFiles[workerIndex]
 
-                            var success = false
-                            var attempt = 0
-                            val maxRetries = 4
+                        var success = false
+                        var attempt = 0
+                        val maxRetries = 6
 
-                            while (!success && attempt < maxRetries) {
-                                attempt++
-                                var workerWritten = 0L
-                                try {
-                                    val request = Request.Builder()
-                                        .url(targetUrl)
-                                        .header("User-Agent", "FlowGrab-Android")
-                                        .header("Range", "bytes=$start-$end")
-                                        .build()
+                        while (!success && attempt < maxRetries && isActive) {
+                            attempt++
+                            val existingBytes = if (partFile.exists()) partFile.length() else 0L
+                            if (existingBytes == expectedBytes) {
+                                success = true
+                                break
+                            }
+                            if (existingBytes > expectedBytes) {
+                                partFile.delete()
+                                downloadedBytes.addAndGet(-existingBytes)
+                            }
 
-                                    client.newCall(request).execute().use { response ->
-                                        if (response.code != 206) {
-                                            throw IOException("Worker $workerIndex received HTTP ${response.code} instead of 206")
-                                        }
+                            val currentOffset = if (partFile.exists()) partFile.length() else 0L
+                            val requestStart = start + currentOffset
+                            var bytesWrittenThisAttempt = 0L
 
-                                        val body = response.body
-                                            ?: throw IOException("Worker $workerIndex received empty body")
+                            try {
+                                val request = Request.Builder()
+                                    .url(targetUrl)
+                                    .header("User-Agent", "FlowGrab-Android")
+                                    .header("Range", "bytes=$requestStart-$end")
+                                    .build()
 
-                                        body.byteStream().use { inputStream ->
-                                            BufferedOutputStream(FileOutputStream(partFile, false), 131_072).use { outputStream ->
-                                                val buffer = ByteArray(65_536)
-                                                var bytesRead: Int
+                                client.newCall(request).execute().use { response ->
+                                    if (response.code == 416) {
+                                        partFile.delete()
+                                        downloadedBytes.addAndGet(-currentOffset)
+                                        throw IOException("Worker $workerIndex range 416, resetting chunk")
+                                    }
+                                    if (response.code != 206) {
+                                        throw IOException("Worker $workerIndex received HTTP ${response.code} instead of 206")
+                                    }
 
-                                                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                                                    val toWrite = minOf(bytesRead.toLong(), expectedBytes - workerWritten).toInt()
-                                                    if (toWrite <= 0) break
+                                    val body = response.body
+                                        ?: throw IOException("Worker $workerIndex received empty body")
 
-                                                    outputStream.write(buffer, 0, toWrite)
-                                                    workerWritten += toWrite
-                                                    downloadedBytes.addAndGet(toWrite.toLong())
+                                    body.byteStream().use { inputStream ->
+                                        BufferedOutputStream(FileOutputStream(partFile, true), 131_072).use { outputStream ->
+                                            val buffer = ByteArray(65_536)
+                                            var bytesRead: Int
+                                            val remainingBytes = expectedBytes - currentOffset
 
-                                                    if (workerWritten >= expectedBytes) break
-                                                }
-                                                outputStream.flush()
+                                            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                                val toWrite = minOf(bytesRead.toLong(), remainingBytes - bytesWrittenThisAttempt).toInt()
+                                                if (toWrite <= 0) break
+
+                                                outputStream.write(buffer, 0, toWrite)
+                                                bytesWrittenThisAttempt += toWrite
+                                                downloadedBytes.addAndGet(toWrite.toLong())
+
+                                                if (bytesWrittenThisAttempt >= remainingBytes) break
                                             }
+                                            outputStream.flush()
                                         }
                                     }
-
-                                    if (partFile.length() != expectedBytes) {
-                                        throw IOException("Worker $workerIndex chunk size mismatch: ${partFile.length()} vs $expectedBytes")
-                                    }
-                                    success = true
-                                } catch (e: Exception) {
-                                    Log.w(TAG, "Worker $workerIndex attempt $attempt failed: ${e.message}")
-                                    downloadedBytes.addAndGet(-workerWritten)
-                                    partFile.delete()
-                                    if (attempt >= maxRetries) throw e
-                                    delay(1000L * attempt)
                                 }
+
+                                if (partFile.length() == expectedBytes) {
+                                    success = true
+                                } else {
+                                    throw IOException("Worker $workerIndex chunk incomplete: ${partFile.length()} vs $expectedBytes")
+                                }
+                            } catch (e: Exception) {
+                                if (e is CancellationException) throw e
+                                Log.w(TAG, "Worker $workerIndex attempt $attempt failed: ${e.message}")
+                                if (attempt >= maxRetries) throw e
+                                delay(1000L * attempt)
                             }
                         }
                     }
-
-                    deferreds.awaitAll()
-                } finally {
-                    progressJob.cancel()
                 }
+
+                deferreds.awaitAll()
+            } finally {
+                progressJob.cancel()
             }
-
-            // Concatenate all isolated chunk files into finalFile
-            val tempMergedFile = File(apkDir, "latest.apk.temp")
-            if (tempMergedFile.exists()) tempMergedFile.delete()
-
-            FileOutputStream(tempMergedFile).channel.use { outChannel ->
-                for (chunkFile in chunkFiles) {
-                    if (!chunkFile.exists() || chunkFile.length() == 0L) {
-                        throw IOException("Chunk file ${chunkFile.name} is missing or empty")
-                    }
-                    FileInputStream(chunkFile).channel.use { inChannel ->
-                        var transferred = 0L
-                        val size = inChannel.size()
-                        while (transferred < size) {
-                            val bytes = inChannel.transferTo(transferred, size - transferred, outChannel)
-                            if (bytes <= 0) break
-                            transferred += bytes
-                        }
-                    }
-                    chunkFile.delete()
-                }
-            }
-
-            if (tempMergedFile.length() != contentLength) {
-                tempMergedFile.delete()
-                throw IOException("Merged file size mismatch: ${tempMergedFile.length()} vs $contentLength")
-            }
-
-            if (finalFile.exists()) finalFile.delete()
-            if (!tempMergedFile.renameTo(finalFile)) {
-                tempMergedFile.copyTo(finalFile, overwrite = true)
-                tempMergedFile.delete()
-            }
-
-            if (!isApkValid(context, finalFile)) {
-                finalFile.delete()
-                throw IOException("Downloaded APK archive is corrupted or invalid")
-            }
-
-            send(DownloadStatus.Progress(100))
-            NotificationUtil.notifyUpdateProgress(versionName, 100)
-            Log.i(TAG, "Parallel isolated chunks download complete & validated at ${finalFile.absolutePath}")
-        } finally {
-            chunkFiles.forEach { if (it.exists()) it.delete() }
         }
+
+        // Concatenate all isolated chunk files into finalFile
+        val tempMergedFile = File(apkDir, "latest.apk.temp")
+        if (tempMergedFile.exists()) tempMergedFile.delete()
+
+        FileOutputStream(tempMergedFile).channel.use { outChannel ->
+            for (chunkFile in chunkFiles) {
+                if (!chunkFile.exists() || chunkFile.length() == 0L) {
+                    throw IOException("Chunk file ${chunkFile.name} is missing or empty")
+                }
+                FileInputStream(chunkFile).channel.use { inChannel ->
+                    var transferred = 0L
+                    val size = inChannel.size()
+                    while (transferred < size) {
+                        val bytes = inChannel.transferTo(transferred, size - transferred, outChannel)
+                        if (bytes <= 0) break
+                        transferred += bytes
+                    }
+                }
+            }
+        }
+
+        if (tempMergedFile.length() != contentLength) {
+            tempMergedFile.delete()
+            throw IOException("Merged file size mismatch: ${tempMergedFile.length()} vs $contentLength")
+        }
+
+        if (finalFile.exists()) finalFile.delete()
+        if (!tempMergedFile.renameTo(finalFile)) {
+            tempMergedFile.copyTo(finalFile, overwrite = true)
+            tempMergedFile.delete()
+        }
+
+        if (!isApkValid(context, finalFile)) {
+            finalFile.delete()
+            cleanChunkFiles(apkDir)
+            metaFile.delete()
+            throw IOException("Downloaded APK archive is corrupted or invalid")
+        }
+
+        cleanChunkFiles(apkDir)
+        metaFile.delete()
+
+        send(DownloadStatus.Progress(100))
+        NotificationUtil.notifyUpdateProgress(versionName, 100)
+        Log.i(TAG, "Parallel isolated chunks download complete & validated at ${finalFile.absolutePath}")
     }
 
     private suspend fun ProducerScope<DownloadStatus>.downloadSingleStream(
@@ -819,6 +883,7 @@ object UpdateUtil {
                 NotificationUtil.notifyUpdateProgress(versionName, 100)
                 completed = true
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Log.w(TAG, "Single-stream attempt $attempt failed: ${e.message}")
                 if (attempt >= maxRetries) throw e
                 delay(1500L * attempt)

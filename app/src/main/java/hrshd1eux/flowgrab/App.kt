@@ -168,8 +168,11 @@ class App : Application() {
                 override fun onServiceDisconnected(arg0: ComponentName) {}
             }
 
+        private val serviceRefCounter = java.util.concurrent.atomic.AtomicInteger(0)
+
         fun startService() {
-            if (isServiceRunning) return
+            val count = serviceRefCounter.incrementAndGet()
+            if (count > 1 && isServiceRunning) return
             try {
                 isServiceRunning = true
                 val intent = Intent(context.applicationContext, DownloadService::class.java)
@@ -179,11 +182,15 @@ class App : Application() {
                 )
             } catch (e: Exception) {
                 isServiceRunning = false
+                serviceRefCounter.decrementAndGet()
                 e.printStackTrace()
             }
         }
 
         fun stopService() {
+            val count = serviceRefCounter.decrementAndGet()
+            if (count > 0) return
+            serviceRefCounter.set(0)
             if (!isServiceRunning) return
             try {
                 isServiceRunning = false
