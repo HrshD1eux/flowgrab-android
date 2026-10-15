@@ -414,7 +414,19 @@ fun ListItemStateText(
     ) { downloadState ->
         val text =
             when (downloadState) {
-                is Canceled -> stringResource(R.string.status_canceled)
+                is Canceled -> {
+                    if (downloadState.action == Task.RestartableAction.Download) {
+                        val progress = downloadState.progress
+                        if (progress != null && progress > 0f) {
+                            val pct = "%.1f%%".format(Locale.US, progress * 100)
+                            "${stringResource(R.string.status_paused)} · $pct"
+                        } else {
+                            stringResource(R.string.status_paused)
+                        }
+                    } else {
+                        stringResource(R.string.status_canceled)
+                    }
+                }
                 is Completed -> stringResource(R.string.status_downloaded)
                 is Error -> stringResource(R.string.status_error)
                 is FetchingInfo -> stringResource(R.string.status_fetching_video_info)
@@ -434,12 +446,21 @@ fun ListItemStateText(
         Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
             when (downloadState) {
                 is Canceled -> {
-                    Icon(
-                        imageVector = Icons.Outlined.Cancel,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = sizeModifier,
-                    )
+                    if (downloadState.action == Task.RestartableAction.Download) {
+                        Icon(
+                            imageVector = Icons.Rounded.Pause,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = sizeModifier,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.Cancel,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = sizeModifier,
+                        )
+                    }
                 }
                 is Completed -> {
                     val color = GreenTonalPalettes.accent1(if (isDarkTheme) 80.0 else 40.0)
@@ -496,7 +517,19 @@ private fun CardItemStateText(modifier: Modifier = Modifier, downloadState: Task
 
     val text =
         when (downloadState) {
-            is Canceled -> stringResource(R.string.status_canceled)
+            is Canceled -> {
+                if (downloadState.action == Task.RestartableAction.Download) {
+                    val progress = downloadState.progress
+                    if (progress != null && progress > 0f) {
+                        val pct = "%.1f%%".format(Locale.US, progress * 100)
+                        "${stringResource(R.string.status_paused)} · $pct"
+                    } else {
+                        stringResource(R.string.status_paused)
+                    }
+                } else {
+                    stringResource(R.string.status_canceled)
+                }
+            }
             is Completed -> stringResource(R.string.status_downloaded)
             is Error -> stringResource(R.string.status_error)
             is FetchingInfo -> stringResource(R.string.status_fetching_video_info)
@@ -504,7 +537,9 @@ private fun CardItemStateText(modifier: Modifier = Modifier, downloadState: Task
             ReadyWithInfo -> stringResource(R.string.status_enqueued)
             is Running -> {
                 if (downloadState.progress >= 0) {
-                    "%.1f%%".format(Locale.US, downloadState.progress * 100)
+                    val pct = "%.1f%%".format(Locale.US, downloadState.progress * 100)
+                    val extra = downloadState.progressText.takeIf { it.isNotBlank() }
+                    if (extra != null) "$pct · $extra" else pct
                 } else {
                     stringResource(R.string.status_downloading)
                 }

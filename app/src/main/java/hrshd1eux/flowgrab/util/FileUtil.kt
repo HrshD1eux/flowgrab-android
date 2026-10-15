@@ -145,9 +145,14 @@ object FileUtil {
             dir.walkTopDown()
                 .filter { file ->
                     file.isFile &&
+                        file.length() > 0L &&
                         matchesMedia(file.name) &&
                         !file.name.contains(Regex(THUMBNAIL_REGEX, RegexOption.IGNORE_CASE)) &&
                         !file.name.contains(Regex(SUBTITLE_REGEX, RegexOption.IGNORE_CASE)) &&
+                        !file.name.endsWith(".part", ignoreCase = true) &&
+                        !file.name.endsWith(".ytdl", ignoreCase = true) &&
+                        !file.name.endsWith(".temp", ignoreCase = true) &&
+                        !file.name.endsWith(".aria2", ignoreCase = true) &&
                         if (isAudioOnly) {
                             file.name.contains(Regex(AUDIO_REGEX, RegexOption.IGNORE_CASE))
                         } else {
@@ -165,9 +170,14 @@ object FileUtil {
                 dir.walkTopDown()
                     .filter { file ->
                         file.isFile &&
+                            file.length() > 0L &&
                             matchesMedia(file.name) &&
                             !file.name.contains(Regex(THUMBNAIL_REGEX, RegexOption.IGNORE_CASE)) &&
-                            !file.name.contains(Regex(SUBTITLE_REGEX, RegexOption.IGNORE_CASE))
+                            !file.name.contains(Regex(SUBTITLE_REGEX, RegexOption.IGNORE_CASE)) &&
+                            !file.name.endsWith(".part", ignoreCase = true) &&
+                            !file.name.endsWith(".ytdl", ignoreCase = true) &&
+                            !file.name.endsWith(".temp", ignoreCase = true) &&
+                            !file.name.endsWith(".aria2", ignoreCase = true)
                     }
                     .sortedByDescending { it.lastModified() }
                     .map { it.absolutePath }

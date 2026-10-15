@@ -35,6 +35,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.util.Locale
 
 object DownloadUtil {
@@ -74,7 +75,7 @@ object DownloadUtil {
     private const val PLAYLIST_TITLE_SUBDIRECTORY_PREFIX = "%(playlist)s/"
 
     private const val CROP_ARTWORK_COMMAND =
-        """--ppa "ThumbnailsConvertor: -c:v mjpeg -vf crop=\"'min(iw,ih)':'min(iw,ih)'\"""""
+        """--ppa "ThumbnailsConvertor: -c:v mjpeg -vf crop=ih:ih""""
 
     @CheckResult
     fun getPlaylistOrVideoInfo(
@@ -905,6 +906,37 @@ object DownloadUtil {
 
                     for (s in request.buildCommand()) Log.d(TAG, s)
                 }
+
+            val isAudio = extractAudio || (videoInfo.vcodec == "none")
+            val targetDir = if (sdcard) context.getSdcardTempDir(videoInfo.id).absolutePath else pathBuilder.toString()
+            val existingCandidates = FileUtil.scanFileToMediaLibraryPostDownload(
+                title = newTitle.ifEmpty { videoInfo.filename ?: videoInfo.requestedDownloads?.firstOrNull()?.filename ?: videoInfo.title },
+                downloadDir = targetDir,
+                isAudioOnly = isAudio,
+                videoId = videoInfo.id,
+            ).filter { path ->
+                val f = File(path)
+                f.exists() && f.length() > 1024L &&
+                    !f.name.endsWith(".part", ignoreCase = true) &&
+                    !f.name.endsWith(".ytdl", ignoreCase = true)
+            }
+
+            val tempDir = if (sdcard) context.getSdcardTempDir(videoInfo.id) else getExternalTempDir()
+            val hasPartFile = tempDir.listFiles()?.any { tempFile -> tempFile.name.contains(videoInfo.id, ignoreCase = true) && (tempFile.name.endsWith(".part", ignoreCase = true) || tempFile.name.endsWith(".ytdl", ignoreCase = true)) } == true ||
+                File(targetDir).listFiles()?.any { targetFile -> targetFile.name.contains(videoInfo.id, ignoreCase = true) && (targetFile.name.endsWith(".part", ignoreCase = true) || targetFile.name.endsWith(".ytdl", ignoreCase = true)) } == true
+
+            if (existingCandidates.isNotEmpty() && !hasPartFile) {
+                Log.i(TAG, "Target media file already exists and is complete: $existingCandidates. Skipping re-download.")
+                progressCallback?.invoke(100f, 0L, "100%")
+                return onFinishDownloading(
+                    preferences = this,
+                    videoInfo = videoInfo,
+                    downloadPath = pathBuilder.toString(),
+                    sdcardUri = sdcardUri,
+                )
+            }
+
+            request
                 .runCatching {
                     if (!App.isInitialized()) {
                         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
@@ -915,19 +947,45 @@ object DownloadUtil {
                         .execute(request = this, processId = taskId, callback = progressCallback)
                 }
                 .onFailure { th ->
-                    return if (
+                    if (
                         sponsorBlock &&
                             th.message?.contains("Unable to communicate with SponsorBlock API") ==
                                 true
                     ) {
                         th.printStackTrace()
+                        return onFinishDownloading(
+                            preferences = this,
+                            videoInfo = videoInfo,
+                            downloadPath = pathBuilder.toString(),
+                            sdcardUri = sdcardUri,
+                        )
+                    }
+
+                    val fallbackResult = runCatching {
                         onFinishDownloading(
                             preferences = this,
                             videoInfo = videoInfo,
                             downloadPath = pathBuilder.toString(),
                             sdcardUri = sdcardUri,
                         )
-                    } else Result.failure(th)
+                    }.getOrNull()
+
+                    val completedFiles = fallbackResult?.getOrNull()
+                    if (!completedFiles.isNullOrEmpty()) {
+                        val validFiles = completedFiles.filter { filePath ->
+                            val f = File(filePath)
+                            f.exists() && f.length() > 1024L &&
+                                !f.name.endsWith(".part", ignoreCase = true) &&
+                                !f.name.endsWith(".ytdl", ignoreCase = true)
+                        }
+                        if (validFiles.isNotEmpty()) {
+                            Log.i(TAG, "Download succeeded despite exception (${th.message}), found valid files: $validFiles")
+                            progressCallback?.invoke(100f, 0L, "100%")
+                            return Result.success(validFiles)
+                        }
+                    }
+
+                    return Result.failure(th)
                 }
             return onFinishDownloading(
                 preferences = this,
@@ -977,7 +1035,7 @@ object DownloadUtil {
                         videoId = videoInfo.id,
                     )
                     .run {
-                        if (privateMode) Result.success(emptyList())
+                        if (privateMode) Result.success(this)
                         else
                             Result.success(
                                 if (splitByChapter) {

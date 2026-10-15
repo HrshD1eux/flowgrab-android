@@ -120,6 +120,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     private val workTriggerChannel = Channel<Unit>(Channel.CONFLATED)
     private val workMutex = Mutex()
     private val lastProgressUpdateMap = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val lastKnownProgressMap = java.util.concurrent.ConcurrentHashMap<String, Float>()
 
     private fun triggerWork() {
         workTriggerChannel.trySend(Unit)
@@ -322,6 +323,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
     override fun remove(task: Task): Boolean {
         autoHealedTaskIds.remove(task.id)
         taskOutputMap.remove(task.id)
+        lastKnownProgressMap.remove(task.id)
         val removed = synchronized(taskStateMap) {
             Snapshot.withMutableSnapshot {
                 taskStateMap.remove(task) != null
@@ -470,29 +472,40 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
             return
         }
         check(downloadState == ReadyWithInfo && info != null)
+        val runId = "${id}_${System.currentTimeMillis()}"
+        val initialProgress = lastKnownProgressMap[id] ?: -1f
+        val initialText = if (initialProgress > 0f) "Resuming..." else ""
+
         scope
             .launch(Dispatchers.Default) {
                 DownloadUtil.downloadVideo(
                         videoInfo = info,
-                        taskId = id,
+                        taskId = runId,
                         downloadPreferences = preferences,
                         progressCallback = { progressPercentage, _, text ->
+                            val current = downloadState
+                            if (current !is Running || current.taskId != runId) return@downloadVideo
                             val progress = progressPercentage / 100f
+                            if (progress > 0f) {
+                                lastKnownProgressMap[id] = progress
+                            }
                             val now = System.currentTimeMillis()
                             val lastTime = lastProgressUpdateMap[id] ?: 0L
                             if (progressPercentage >= 100f || now - lastTime >= 100L) {
                                 lastProgressUpdateMap[id] = now
                                 when (val preState = downloadState) {
                                     is Running -> {
-                                        downloadState =
-                                            preState.copy(progress = progress, progressText = text)
-                                        NotificationUtil.notifyProgress(
-                                            notificationId = notificationId,
-                                            progress = progressPercentage.toInt(),
-                                            text = text,
-                                            title = viewState.title,
-                                            taskId = id,
-                                        )
+                                        if (preState.taskId == runId) {
+                                            downloadState =
+                                                preState.copy(progress = progress, progressText = text)
+                                            NotificationUtil.notifyProgress(
+                                                notificationId = notificationId,
+                                                progress = progressPercentage.toInt(),
+                                                text = text,
+                                                title = viewState.title,
+                                                taskId = id,
+                                            )
+                                        }
                                     }
                                     else -> {}
                                 }
@@ -500,9 +513,12 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         },
                     )
                     .onSuccess { pathList ->
-                        if (downloadState is DownloadState.Canceled) {
+                        val current = downloadState
+                        if (current !is Running || current.taskId != runId) {
+                            Log.d(TAG, "Run $runId completed but superseded or cancelled, ignoring")
                             return@onSuccess
                         }
+                        lastKnownProgressMap.remove(id)
                         val completedPath = pathList.firstOrNull()
                         downloadState = Completed(completedPath)
 
@@ -550,12 +566,18 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         triggerWork()
                     }
                     .onFailure { throwable ->
+                        val current = downloadState
+                        if (current !is Running || current.taskId != runId) {
+                            Log.d(TAG, "Run $runId failed but superseded or cancelled, ignoring failure")
+                            return@onFailure
+                        }
                         Log.e(TAG, "Task ${id} (${url}) download failed", throwable)
-                        val isCancelled = downloadState is DownloadState.Canceled ||
-                            throwable is YoutubeDL.CanceledException ||
+                        val isCancelled = throwable is YoutubeDL.CanceledException ||
                             throwable is kotlinx.coroutines.CancellationException ||
                             throwable.message?.contains("destroy", ignoreCase = true) == true ||
-                            throwable.message?.contains("cancel", ignoreCase = true) == true
+                            throwable.message?.contains("cancel", ignoreCase = true) == true ||
+                            throwable.message?.contains("143", ignoreCase = true) == true ||
+                            throwable.message?.contains("SIGTERM", ignoreCase = true) == true
                         if (isCancelled) {
                             triggerWork()
                             return@onFailure
@@ -574,17 +596,28 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                         triggerWork()
                     }
             }
-            .also { job -> downloadState = Running(job = job, taskId = id) }
+            .also { job ->
+                downloadState = Running(
+                    job = job,
+                    taskId = runId,
+                    progress = initialProgress,
+                    progressText = initialText,
+                )
+            }
     }
 
     private fun Task.cancelImpl(): Boolean {
         when (val preState = downloadState) {
             is DownloadState.Cancelable -> {
+                val taskIdToDestroy = preState.taskId
                 scope.launch(Dispatchers.IO) {
-                    runCatching { YoutubeDL.destroyProcessById(preState.taskId) }
+                    runCatching { YoutubeDL.destroyProcessById(taskIdToDestroy) }
                 }
                 preState.job.cancel()
-                val progress = if (preState is Running) preState.progress else null
+                val progress = (preState as? Running)?.progress ?: lastKnownProgressMap[id]
+                if (progress != null && progress > 0f) {
+                    lastKnownProgressMap[id] = progress
+                }
                 NotificationUtil.cancelNotification(notificationId)
                 downloadState =
                     DownloadState.Canceled(action = preState.action, progress = progress)
@@ -592,18 +625,21 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                 return true
             }
             Idle -> {
+                val taskIdToDestroy = id
                 scope.launch(Dispatchers.IO) {
-                    runCatching { YoutubeDL.destroyProcessById(id) }
+                    runCatching { YoutubeDL.destroyProcessById(taskIdToDestroy) }
                 }
                 downloadState = DownloadState.Canceled(action = FetchInfo)
                 triggerWork()
                 return true
             }
             ReadyWithInfo -> {
+                val taskIdToDestroy = id
                 scope.launch(Dispatchers.IO) {
-                    runCatching { YoutubeDL.destroyProcessById(id) }
+                    runCatching { YoutubeDL.destroyProcessById(taskIdToDestroy) }
                 }
-                downloadState = DownloadState.Canceled(action = Download)
+                val progress = lastKnownProgressMap[id]
+                downloadState = DownloadState.Canceled(action = Download, progress = progress)
                 triggerWork()
                 return true
             }
@@ -622,6 +658,10 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
             is ReadyWithInfo -> Download
             is Idle -> FetchInfo
             else -> if (info != null) Download else FetchInfo
+        }
+        val preservedProgress = (downloadState as? DownloadState.Canceled)?.progress
+        if (preservedProgress != null && preservedProgress > 0f) {
+            lastKnownProgressMap[id] = preservedProgress
         }
         downloadState =
             if (type is TypeInfo.CustomCommand) {
