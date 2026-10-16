@@ -115,7 +115,8 @@ object DownloadUtil {
                     }
                 }
             }
-            val responseOut = execute(request, playlistURL).out.trim()
+            val response = execute(request, playlistURL)
+            val responseOut = response.out.trim()
             val jsonStartIndex = responseOut.indexOf('{')
             val jsonEndIndex = responseOut.lastIndexOf('}')
             val cleanJson =
@@ -124,6 +125,14 @@ object DownloadUtil {
                 } else {
                     responseOut
                 }
+            if (cleanJson.isBlank() || cleanJson == "null" || jsonStartIndex == -1) {
+                val err = response.err.trim()
+                if (err.isNotBlank()) {
+                    throw YoutubeDLException(err)
+                } else {
+                    throw YoutubeDLException("No downloadable video or audio streams found for this URL.")
+                }
+            }
             val playlistInfo = jsonFormat.decodeFromString<PlaylistResult>(cleanJson)
             if (playlistInfo.type != "playlist") {
                 jsonFormat.decodeFromString<VideoInfo>(cleanJson)
@@ -152,6 +161,14 @@ object DownloadUtil {
                 } else {
                     responseOut
                 }
+            if (cleanJson.isBlank() || cleanJson == "null" || jsonStartIndex == -1) {
+                val err = response.err.trim()
+                if (err.isNotBlank()) {
+                    throw YoutubeDLException(err)
+                } else {
+                    throw YoutubeDLException("No downloadable video or audio streams found for this URL.")
+                }
+            }
             jsonFormat.decodeFromString<VideoInfo>(cleanJson)
         }
 

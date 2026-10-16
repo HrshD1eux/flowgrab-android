@@ -51,6 +51,7 @@ import hrshd1eux.flowgrab.download.DownloaderV2
 import hrshd1eux.flowgrab.download.Task
 import hrshd1eux.flowgrab.ui.component.ButtonChip
 import hrshd1eux.flowgrab.util.ToastUtil
+import hrshd1eux.flowgrab.util.extractErrorMessage
 import org.koin.compose.koinInject
 
 private const val TAG = "TaskLogPage"
@@ -115,9 +116,7 @@ fun TaskLogPage(
                             label = stringResource(id = R.string.copy_error_report),
                             iconColor = MaterialTheme.colorScheme.error,
                         ) {
-                            val err =
-                                downloadState.throwable.message
-                                    ?: downloadState.throwable.stackTraceToString()
+                            val err = downloadState.throwable.extractErrorMessage()
                             clipboardManager.setText(AnnotatedString(err))
                             ToastUtil.makeToast(R.string.error_copied)
                         }

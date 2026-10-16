@@ -167,6 +167,8 @@ import hrshd1eux.flowgrab.util.USE_CUSTOM_AUDIO_PRESET
 import hrshd1eux.flowgrab.util.VIDEO_FORMAT
 import hrshd1eux.flowgrab.util.VIDEO_QUALITY
 import hrshd1eux.flowgrab.util.VideoInfo
+import hrshd1eux.flowgrab.util.extractErrorMessage
+import hrshd1eux.flowgrab.util.getErrorReport
 import hrshd1eux.flowgrab.util.toDurationText
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -331,7 +333,7 @@ private fun ErrorPage(modifier: Modifier = Modifier, state: Error, onActionPost:
             modifier = Modifier.padding(top = 12.dp),
         )
         Text(
-            text = state.throwable.message.toString(),
+            text = state.throwable.extractErrorMessage(),
             style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier =
@@ -350,7 +352,7 @@ private fun ErrorPage(modifier: Modifier = Modifier, state: Error, onActionPost:
                     view.longPressHapticFeedback()
                     clipboardManager.setText(
                         AnnotatedString(
-                            App.getVersionReport() + "\nURL: ${url}\n${state.throwable.message}"
+                            getErrorReport(state.throwable, url)
                         )
                     )
                     ToastUtil.makeToast(R.string.error_copied)

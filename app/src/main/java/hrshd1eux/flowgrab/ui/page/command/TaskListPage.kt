@@ -83,6 +83,7 @@ import hrshd1eux.flowgrab.util.PreferenceUtil
 import hrshd1eux.flowgrab.util.PreferenceUtil.updateInt
 import hrshd1eux.flowgrab.util.TEMPLATE_ID
 import hrshd1eux.flowgrab.util.ToastUtil
+import hrshd1eux.flowgrab.util.extractErrorMessage
 import hrshd1eux.flowgrab.util.matchUrlFromString
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -175,8 +176,7 @@ fun TaskListPage(
                     onCopyError = {
                         val err =
                             if (downloadState is Task.DownloadState.Error) {
-                                downloadState.throwable.message
-                                    ?: downloadState.throwable.stackTraceToString()
+                                downloadState.throwable.extractErrorMessage()
                             } else {
                                 ""
                             }

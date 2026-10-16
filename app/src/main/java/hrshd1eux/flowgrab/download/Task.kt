@@ -6,6 +6,7 @@ import hrshd1eux.flowgrab.download.Task.ViewState
 import hrshd1eux.flowgrab.util.DownloadUtil
 import hrshd1eux.flowgrab.util.Format
 import hrshd1eux.flowgrab.util.VideoInfo
+import hrshd1eux.flowgrab.util.extractErrorMessage
 import hrshd1eux.flowgrab.util.toHttpsUrl
 import kotlinx.coroutines.Job
 import kotlinx.serialization.Serializable
@@ -95,9 +96,19 @@ data class Task(
 
         @Serializable
         data class Error(
-            @Transient val throwable: Throwable = Throwable(),
+            val errorMessage: String = "",
+            @Transient private val _throwable: Throwable? = null,
             override val action: RestartableAction,
-        ) : DownloadState, Restartable
+        ) : DownloadState, Restartable {
+            val throwable: Throwable
+                get() = _throwable ?: Throwable(errorMessage.ifBlank { "Download failed" })
+
+            constructor(throwable: Throwable, action: RestartableAction) : this(
+                errorMessage = throwable.extractErrorMessage(),
+                _throwable = throwable,
+                action = action,
+            )
+        }
 
         @Serializable data class Completed(val filePath: String?) : DownloadState
 

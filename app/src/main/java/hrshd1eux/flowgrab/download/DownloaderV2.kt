@@ -30,6 +30,8 @@ import hrshd1eux.flowgrab.util.PreferenceUtil
 import hrshd1eux.flowgrab.util.ToastUtil
 import hrshd1eux.flowgrab.util.UpdateUtil
 import hrshd1eux.flowgrab.util.VideoInfo
+import hrshd1eux.flowgrab.util.extractErrorMessage
+import hrshd1eux.flowgrab.util.getErrorReport
 import com.yausername.youtubedl_android.YoutubeDL
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -458,7 +460,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                             title = viewState.title,
                             textId = R.string.download_error_msg,
                             notificationId = notificationId,
-                            report = throwable.stackTraceToString(),
+                            report = getErrorReport(throwable, task.url),
                         )
                         triggerWork()
                     }
@@ -591,7 +593,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                             title = viewState.title,
                             textId = R.string.download_error_msg,
                             notificationId = notificationId,
-                            report = throwable.stackTraceToString(),
+                            report = getErrorReport(throwable, url),
                         )
                         triggerWork()
                     }
@@ -723,7 +725,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                             triggerWork()
                             return@onFailure
                         }
-                        outputBuilder.appendLine("\nError: ${throwable.message}\n${throwable.stackTraceToString()}")
+                        outputBuilder.appendLine("\nError: ${throwable.extractErrorMessage()}\n${throwable.stackTraceToString()}")
                         if (throwable.isExtractorOrBotIssue() && !autoHealedTaskIds.contains(id)) {
                             autoHealAndRetry(this@execute, Download)
                             return@onFailure
@@ -733,7 +735,7 @@ class DownloaderV2Impl(private val appContext: Context) : DownloaderV2, KoinComp
                             title = viewState.title,
                             textId = R.string.download_error_msg,
                             notificationId = notificationId,
-                            report = throwable.stackTraceToString(),
+                            report = getErrorReport(throwable, url),
                         )
                         triggerWork()
                     }

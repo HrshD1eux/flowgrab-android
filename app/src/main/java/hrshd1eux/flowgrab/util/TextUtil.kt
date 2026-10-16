@@ -116,8 +116,70 @@ fun Number?.toBitrateText(): String {
     }
 }
 
+fun Throwable.extractErrorMessage(): String {
+    val raw = message?.trim().takeIf { !it.isNullOrBlank() && it != "null" }
+        ?: cause?.extractErrorMessage()
+        ?: localizedMessage?.trim().takeIf { !it.isNullOrBlank() && it != "null" }
+        ?: toString().trim().takeIf { !it.isNullOrBlank() && it != "null" }
+        ?: "Unknown error occurred"
+    return formatHumanReadableError(raw)
+}
+
+fun formatHumanReadableError(rawMsg: String): String {
+    val lower = rawMsg.lowercase()
+    val humanPrefix = when {
+        lower.contains("there is no video in this post") ->
+            "This Instagram post contains only static photos/images and does not have any video or audio stream to download."
+
+        lower.contains("empty media response") ||
+        (lower.contains("instagram") && (lower.contains("login") || lower.contains("checkpoint") || lower.contains("private"))) ->
+            "Instagram login required: This media may be private or restricted by Instagram. Please log into Instagram in Settings -> Network -> Cookies to import session cookies."
+
+        lower.contains("confirm you're not a bot") || lower.contains("sign in to confirm") ->
+            "Bot verification required: The platform requested human verification. Please log in or import cookies via Settings -> Network -> Cookies."
+
+        lower.contains("video unavailable") || lower.contains("this video is unavailable") ->
+            "Media unavailable: This video has been removed, made private, or is restricted in your region."
+
+        lower.contains("private video") ->
+            "Private video: This content is private. Please sign in with an authorized account in Settings -> Network -> Cookies."
+
+        lower.contains("members-only") ->
+            "Members-only content: This video requires channel membership. Please sign in with an active member account in Settings -> Network -> Cookies."
+
+        lower.contains("age-restricted") ->
+            "Age-restricted content: Please log into an adult account in Settings -> Network -> Cookies."
+
+        lower.contains("403: forbidden") || lower.contains("http error 403") ->
+            "Access forbidden (HTTP 403): The server blocked the request. Please check cookies or network connection."
+
+        lower.contains("404: not found") || lower.contains("http error 404") ->
+            "Media not found (HTTP 404): The requested URL does not exist or has been deleted."
+
+        lower.contains("429: too many requests") || lower.contains("http error 429") ->
+            "Rate limited (HTTP 429): Too many requests sent to the server. Please wait a few minutes before trying again."
+
+        lower.contains("no space left on device") ->
+            "Storage full: Not enough free disk space on device to complete download."
+
+        lower.contains("postprocessing: conversion failed") || lower.contains("conversion failed") ->
+            "Post-processing conversion failed. Check storage permissions and free space."
+
+        lower.contains("no media formats or video streams found") || lower.contains("no downloadable video or audio streams found") ->
+            "No downloadable media streams found for this URL."
+
+        else -> null
+    }
+
+    return if (humanPrefix != null) {
+        "$humanPrefix\n\n[Details]: $rawMsg"
+    } else {
+        rawMsg
+    }
+}
+
 fun getErrorReport(th: Throwable, url: String): String =
-    App.getVersionReport() + "\nURL: ${url}\n${th.message}"
+    App.getVersionReport() + "\nURL: ${url}\n${th.extractErrorMessage()}"
 
 fun matchUrlFromString(s: String, isMatchingMultiLink: Boolean = false): String =
     findURLsFromString(s, !isMatchingMultiLink).joinToString(separator = "\n")
