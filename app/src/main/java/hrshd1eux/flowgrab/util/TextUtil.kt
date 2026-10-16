@@ -131,9 +131,18 @@ fun formatHumanReadableError(rawMsg: String): String {
         lower.contains("there is no video in this post") ->
             "This Instagram post contains only static photos/images and does not have any video or audio stream to download."
 
+        lower.contains("no video could be found in this tweet") ->
+            "This tweet/post contains only static photos or text and does not have any video or audio stream to download."
+
         lower.contains("empty media response") ||
         (lower.contains("instagram") && (lower.contains("login") || lower.contains("checkpoint") || lower.contains("private"))) ->
             "Instagram login required: This media may be private or restricted by Instagram. Please log into Instagram in Settings -> Network -> Cookies to import session cookies."
+
+        lower.contains("account authentication is required") || lower.contains("web client only works when logged-in") ->
+            "Authentication required: This platform requires login cookies. Please sign in via Settings -> Network -> Cookies to import session cookies."
+
+        lower.contains("geo restriction") || lower.contains("not available from your location") ->
+            "Geo-restricted content: This media is blocked in your country/region. Please use a VPN or configure a proxy in Settings -> Network -> Proxy."
 
         lower.contains("confirm you're not a bot") || lower.contains("sign in to confirm") ->
             "Bot verification required: The platform requested human verification. Please log in or import cookies via Settings -> Network -> Cookies."
