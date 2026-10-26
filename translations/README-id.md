@@ -7,16 +7,16 @@
 ### Pengunduh Video/Audio untuk Android
 
 
-<a href="https://github.com/JunkFood02/FlowGrab/blob/main/README.md">English</a>
+<a href="https://github.com/HrshD1eux/flowgrab-android/blob/main/README.md">English</a>
 &nbsp;&nbsp;|&nbsp;&nbsp;
 Indonesia
 
 [![F-Droid](https://img.shields.io/f-droid/v/hrshd1eux.flowgrab?color=b4eb12&label=F-Droid&logo=fdroid&logoColor=1f78d2)](https://f-droid.org/en/packages/hrshd1eux.flowgrab)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/latest/)
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![Keep a Changelog](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/JunkFood02/FlowGrab/blob/main/CHANGELOG.md)
-[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/JunkFood02/FlowGrab/stargazers)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/latest/)
+[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![Keep a Changelog](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/HrshD1eux/flowgrab-android/blob/main/CHANGELOG.md)
+[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/HrshD1eux/flowgrab-android/stargazers)
 [![Supported Sites](https://img.shields.io/badge/Supported-Sites-9cf.svg?style=flat)](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 [![Telegram Channel](https://img.shields.io/badge/Telegram-FlowGrab-blue?style=flat&logo=telegram)](https://t.me/seal_app)
 [![Matrix Space](https://img.shields.io/badge/Matrix-FlowGrab-Black?style=flat&color=black&logo=matrix)](https://matrix.to/#/#seal-space:matrix.org)
@@ -71,8 +71,8 @@ tujuan yang dapat dikomposisikan.
 
 Untuk sebagian besar perangkat, disarankan untuk menginstal versi **arm64-v8a** dari aplikasi
 
-- Unduh versi stabil terbaru dari [GitHub releases](https://github.com/JunkFood02/FlowGrab/releases/latest)
-  - Instal versi [Pra-rilis](https://github.com/JunkFood02/FlowGrab/releases/) untuk membantu kami menguji fitur & perubahan baru
+- Unduh versi stabil terbaru dari [GitHub releases](https://github.com/HrshD1eux/flowgrab-android/releases/latest)
+  - Instal versi [Pra-rilis](https://github.com/HrshD1eux/flowgrab-android/releases/) untuk membantu kami menguji fitur & perubahan baru
 
 - Rilis stabil juga tersedia di [F-Droid](https://f-droid.org/packages/hrshd1eux.flowgrab/)
 
@@ -101,7 +101,7 @@ Anda dapat membantu menerjemahkan FlowGrab di [Hosted Weblate](https://hosted.we
 	
 >**Catatan**
 >
->Untuk mengirimkan laporan bug, permintaan fitur, pertanyaan, atau ide lain untuk perbaikan, silakan baca [CONTRIBUTING.md](https://github.com/JunkFood02/FlowGrab/blob/main/CONTRIBUTING.md) untuk petunjuk dan panduan terlebih dahulu.
+>Untuk mengirimkan laporan bug, permintaan fitur, pertanyaan, atau ide lain untuk perbaikan, silakan baca [CONTRIBUTING.md](https://github.com/HrshD1eux/flowgrab-android/blob/main/CONTRIBUTING.md) untuk petunjuk dan panduan terlebih dahulu.
 
 ## ⭐️ Sejarah bintang
 
@@ -122,7 +122,7 @@ Beberapa desain dan kode UI dipinjam dari [Read You](https://github.com/Ashinch/
 
 ## 📃 Lisensi
 
-[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/JunkFood02/FlowGrab/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/HrshD1eux/flowgrab-android/blob/main/LICENSE)
 
 >**Peringatan**
 >

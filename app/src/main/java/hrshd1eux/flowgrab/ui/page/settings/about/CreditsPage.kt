@@ -38,6 +38,7 @@ private const val APACHE_V2 = "Apache License, Version 2.0"
 private const val UNLICENSE = "The Unlicense"
 private const val BSD = "BSD 3-Clause License"
 
+private const val sealUrl = "https://github.com/JunkFood02/Seal"
 private const val youtubedlAndroidUrl = "https://github.com/yausername/youtubedl-android"
 private const val ytdlpUrl = "https://github.com/yt-dlp/yt-dlp"
 private const val readYou = "https://github.com/Ashinch/ReadYou"
@@ -66,6 +67,7 @@ fun CreditsPage(onNavigateBack: () -> Unit) {
 
     val creditsList =
         listOf(
+            Credit("Seal (Upstream by JunkFood02)", GPL_V3, sealUrl),
             Credit("yt-dlp", UNLICENSE, ytdlpUrl),
             Credit("Read You", GPL_V3, readYou),
             Credit("youtubedl-android", GPL_V3, youtubedlAndroidUrl),

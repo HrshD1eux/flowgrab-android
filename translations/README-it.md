@@ -7,18 +7,18 @@
 ### Video/Audio Downloader per Android
 
 <p align="center">
-<a href="https://github.com/JunkFood02/FlowGrab/blob/main/README.md">English</a>
+<a href="https://github.com/HrshD1eux/flowgrab-android/blob/main/README.md">English</a>
 &nbsp;&nbsp;| &nbsp;&nbsp;
 Italiano
 </p>
 
 
 [![F-Droid](https://img.shields.io/f-droid/v/hrshd1eux.flowgrab?color=b4eb12&label=F-Droid&logo=fdroid&logoColor=1f78d2)](https://f-droid.org/en/packages/hrshd1eux.flowgrab)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/latest/)
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![Keep a Changelog](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/JunkFood02/FlowGrab/blob/main/CHANGELOG.md)
-[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/JunkFood02/FlowGrab/stargazers)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/latest/)
+[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![Keep a Changelog](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/HrshD1eux/flowgrab-android/blob/main/CHANGELOG.md)
+[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/HrshD1eux/flowgrab-android/stargazers)
 [![Supported Sites](https://img.shields.io/badge/Supported-Sites-9cf.svg?style=flat)](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 [![Telegram Channel](https://img.shields.io/badge/Telegram-FlowGrab-blue?style=flat&logo=telegram)](https://t.me/seal_app)
 [![Matrix Space](https://img.shields.io/badge/Matrix-FlowGrab-Black?style=flat&color=black&logo=matrix)](https://matrix.to/#/#seal-space:matrix.org)
@@ -72,8 +72,8 @@ Italiano
 
 Per la maggior parte dei dispositivi, é consigliato installare la versione **arm64-v8a** dell'apk.
 
-- Scarica l'ultima versione stabile dalle [release di GitHub](https://github.com/JunkFood02/FlowGrab/releases/latest)
-  - Installa la versione [pre-release](https://github.com/JunkFood02/FlowGrab/releases/) per aiutarci a testare nuove funzionalità e trovare bug.
+- Scarica l'ultima versione stabile dalle [release di GitHub](https://github.com/HrshD1eux/flowgrab-android/releases/latest)
+  - Installa la versione [pre-release](https://github.com/HrshD1eux/flowgrab-android/releases/) per aiutarci a testare nuove funzionalità e trovare bug.
 
 - Le versioni stabili sono disponibili anche su [F-Droid](https://f-droid.org/packages/hrshd1eux.flowgrab/)
 
@@ -102,7 +102,7 @@ Puoi aiutare a tradurre FlowGrab su [Hosted Weblate](https://hosted.weblate.org/
 	
 >**Nota Bene**
 >
->Per inviare report di bug, richieste di feature, domande o qualsiasi altra idea per migliorare, perfavore leggi [CONTRIBUTING.md](https://github.com/JunkFood02/FlowGrab/blob/main/CONTRIBUTING.md) per istruzioni e linee guida.
+>Per inviare report di bug, richieste di feature, domande o qualsiasi altra idea per migliorare, perfavore leggi [CONTRIBUTING.md](https://github.com/HrshD1eux/flowgrab-android/blob/main/CONTRIBUTING.md) per istruzioni e linee guida.
 
 ## ⭐️ Storia delle Stelle
 
@@ -123,7 +123,7 @@ Alcune parti del design UI sono prese da [Read You](https://github.com/Ashinch/R
 
 ## 📃 Licenza
 
-[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/JunkFood02/FlowGrab/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/HrshD1eux/flowgrab-android/blob/main/LICENSE)
 
 >**Avvertimento**
 >

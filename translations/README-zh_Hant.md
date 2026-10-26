@@ -7,16 +7,16 @@
 ### 只為 Android 而生的視訊/音訊下載程式
 
 
-<a href="https://github.com/JunkFood02/FlowGrab/blob/main/README.md">English</a>
+<a href="https://github.com/HrshD1eux/flowgrab-android/blob/main/README.md">English</a>
 &nbsp;&nbsp;| &nbsp;&nbsp;
 繁體中文
 
 [![F-Droid](https://img.shields.io/f-droid/v/hrshd1eux.flowgrab?color=b4eb12&label=F-Droid&logo=fdroid&logoColor=1f78d2)](https://f-droid.org/en/packages/hrshd1eux.flowgrab)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/latest/)
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![Keep a Changelog](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/JunkFood02/FlowGrab/blob/main/CHANGELOG.md)
-[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/JunkFood02/FlowGrab/stargazers)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/latest/)
+[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![Keep a Changelog](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/HrshD1eux/flowgrab-android/blob/main/CHANGELOG.md)
+[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/HrshD1eux/flowgrab-android/stargazers)
 [![Supported Sites](https://img.shields.io/badge/Supported-Sites-9cf.svg?style=flat)](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 [![Telegram Channel](https://img.shields.io/badge/Telegram-FlowGrab-blue?style=flat&logo=telegram)](https://t.me/seal_app)
 [![Matrix Space](https://img.shields.io/badge/Matrix-FlowGrab-Black?style=flat&color=black&logo=matrix)](https://matrix.to/#/#seal-space:matrix.org)
@@ -71,8 +71,8 @@
 
 我們建議大多數裝置使用 **arm64-v8a** 版本的 APK 檔。
 
-- 從 [GitHub releases](https://github.com/JunkFood02/FlowGrab/releases/latest) 下載最新穩定發行版
-  - 安裝 [預先發行版本](https://github.com/JunkFood02/FlowGrab/releases/)，以幫助我們測試最新功能和變更
+- 從 [GitHub releases](https://github.com/HrshD1eux/flowgrab-android/releases/latest) 下載最新穩定發行版
+  - 安裝 [預先發行版本](https://github.com/HrshD1eux/flowgrab-android/releases/)，以幫助我們測試最新功能和變更
 
 - 穩定發行版亦可於 [F-Droid](https://f-droid.org/packages/hrshd1eux.flowgrab/) 取得
 
@@ -101,7 +101,7 @@ FlowGrab 永遠提供眾人免費使用並開放原始碼。若您悅納，請�
 	
 >**備註**
 >
->請在回報錯誤、功能請求、求問，或提供任何改進建言之前，先閱讀 [CONTRIBUTING.md](https://github.com/JunkFood02/FlowGrab/blob/main/CONTRIBUTING.md) 相關指引。
+>請在回報錯誤、功能請求、求問，或提供任何改進建言之前，先閱讀 [CONTRIBUTING.md](https://github.com/HrshD1eux/flowgrab-android/blob/main/CONTRIBUTING.md) 相關指引。
 
 ## ⭐️ Star 歷程
 
@@ -122,7 +122,7 @@ FlowGrab 是基於 [youtubedl-android](https://github.com/yausername/youtubedl-a
 
 ## 📃 授權（本節僅供參考，敬請閱讀原文）
 
-[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/JunkFood02/FlowGrab/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/HrshD1eux/flowgrab-android/blob/main/LICENSE)
 
 >**警告**
 >

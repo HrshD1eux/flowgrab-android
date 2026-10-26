@@ -8,7 +8,7 @@
 
 
 <p align="center">
-<a href="https://github.com/JunkFood02/FlowGrab/blob/main/README.md">English</a>
+<a href="https://github.com/HrshD1eux/flowgrab-android/blob/main/README.md">English</a>
 &nbsp;&nbsp;| &nbsp;&nbsp;
 Српски
 </p>
@@ -16,11 +16,11 @@
 
 
 [![F-Droid](https://img.shields.io/f-droid/v/hrshd1eux.flowgrab?color=b4eb12&label=F-Droid&logo=fdroid&logoColor=1f78d2)](https://f-droid.org/en/packages/hrshd1eux.flowgrab)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/latest/)
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![Keep a Changelog](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/JunkFood02/FlowGrab/blob/main/CHANGELOG.md)
-[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/JunkFood02/FlowGrab/stargazers)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/latest/)
+[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![Keep a Changelog](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/HrshD1eux/flowgrab-android/blob/main/CHANGELOG.md)
+[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/HrshD1eux/flowgrab-android/stargazers)
 [![Supported Sites](https://img.shields.io/badge/Supported-Sites-9cf.svg?style=flat)](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 [![Telegram Channel](https://img.shields.io/badge/Telegram-FlowGrab-blue?style=flat&logo=telegram)](https://t.me/seal_app)
 [![Matrix Space](https://img.shields.io/badge/Matrix-FlowGrab-Black?style=flat&color=black&logo=matrix)](https://matrix.to/#/#seal-space:matrix.org)
@@ -75,8 +75,8 @@
 
 За већину уређаја, препоручује се инсталирање **arm64-v8a** верзије APK-ова 
 
-- Преузмите најновију стабилну верзију са [GitHub издања](https://github.com/JunkFood02/FlowGrab/releases/latest)
-  - Инсталирајте [бета издања](https://github.com/JunkFood02/FlowGrab/releases/) апликације да бисте нам помогли да тестирамо нове функције и промене 
+- Преузмите најновију стабилну верзију са [GitHub издања](https://github.com/HrshD1eux/flowgrab-android/releases/latest)
+  - Инсталирајте [бета издања](https://github.com/HrshD1eux/flowgrab-android/releases/) апликације да бисте нам помогли да тестирамо нове функције и промене 
 
 - Стабилна издања су такође доступна у продавници апликација [F-Droid](https://f-droid.org/packages/hrshd1eux.flowgrab/) 
 
@@ -105,7 +105,7 @@ FlowGrab ће увек бити бесплатан и отвореног код�
 
 >**Напомена**
 >
->За слање извештаја о грешкама, захтева за функције, питања или било које друге идеје за побољшање апликације, прво прочитајте [CONTRIBUTING.md](https://github.com/JunkFood02/FlowGrab/blob/main/CONTRIBUTING.md) за упутства и смернице. 
+>За слање извештаја о грешкама, захтева за функције, питања или било које друге идеје за побољшање апликације, прво прочитајте [CONTRIBUTING.md](https://github.com/HrshD1eux/flowgrab-android/blob/main/CONTRIBUTING.md) за упутства и смернице. 
 
 ## ⭐️ Графикон раста броја звездица
 [![Star History Chart](https://api.star-history.com/svg?repos=JunkFood02/FlowGrab&type=Timeline)](https://star-history.com/#JunkFood02/FlowGrab&Timeline)
@@ -125,7 +125,7 @@ FlowGrab је једноставан графички кориснички ин�
 
 ## 📃 Лиценца 
 
-[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/JunkFood02/FlowGrab/blob/main/LICENSE) 
+[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/HrshD1eux/flowgrab-android/blob/main/LICENSE) 
 
 >**Упозорење**
 >

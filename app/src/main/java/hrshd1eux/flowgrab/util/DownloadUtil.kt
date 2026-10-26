@@ -235,19 +235,32 @@ object DownloadUtil {
                 return res
             }
 
-            // If primary YouTube extraction fails (e.g., player client blocked), attempt fallback client
+            // If primary YouTube extraction fails (e.g., player client blocked), attempt multi-tier fallback clients
             if (res.isFailure && url.contains("youtu", ignoreCase = true)) {
-                Log.w(TAG, "Primary extractor attempt failed for $url, retrying with fallback client...")
+                Log.w(TAG, "Primary extractor attempt failed for $url, retrying with mobile fallback client...")
                 val fallbackArgs =
                     if (autoSubtitle && !autoTranslatedSubtitles) {
-                        "player_client=tv_embedded,web;skip=translated_subs"
+                        "player_client=android,mweb,web;skip=translated_subs"
                     } else {
-                        "player_client=tv_embedded,web"
+                        "player_client=android,mweb,web"
                     }
                 val fallbackRequest = buildRequest(fallbackArgs)
                 val fallbackRes = getVideoInfo(fallbackRequest, taskKey)
                 if (fallbackRes.isSuccess) {
                     res = fallbackRes
+                } else {
+                    Log.w(TAG, "Secondary fallback attempt failed for $url, retrying with pure android client...")
+                    val androidArgs =
+                        if (autoSubtitle && !autoTranslatedSubtitles) {
+                            "player_client=android;skip=translated_subs"
+                        } else {
+                            "player_client=android"
+                        }
+                    val androidRequest = buildRequest(androidArgs)
+                    val androidRes = getVideoInfo(androidRequest, taskKey)
+                    if (androidRes.isSuccess) {
+                        res = androidRes
+                    }
                 }
             }
 
@@ -511,7 +524,7 @@ object DownloadUtil {
         autoTranslatedSubtitles: Boolean = false,
     ): YoutubeDLRequest = apply {
         val args = mutableListOf<String>()
-        args.add("player_client=visionos,web")
+        args.add("player_client=android,visionos,web,tv_downgraded")
         if (autoSubtitle && !autoTranslatedSubtitles) {
             args.add("skip=translated_subs")
         }

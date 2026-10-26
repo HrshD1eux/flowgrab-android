@@ -9,17 +9,17 @@
 ### 一个简单的 Android 视频/音频下载器，使用 Jetpack Compose 进行开发
 
 <p align="center">
-<a href="https://github.com/JunkFood02/FlowGrab/blob/main/README.md">English</a>
+<a href="https://github.com/HrshD1eux/flowgrab-android/blob/main/README.md">English</a>
 &nbsp;&nbsp;|&nbsp;&nbsp;
 简体中文
 </p>
 
 [![F-Droid](https://img.shields.io/f-droid/v/hrshd1eux.flowgrab?color=b4eb12&label=F-Droid&logo=fdroid&logoColor=1f78d2)](https://f-droid.org/en/packages/hrshd1eux.flowgrab)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/latest/)
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![Keep a Changelog](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/JunkFood02/FlowGrab/blob/main/CHANGELOG.md)
-[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/JunkFood02/FlowGrab/stargazers)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/latest/)
+[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![Keep a Changelog](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/HrshD1eux/flowgrab-android/blob/main/CHANGELOG.md)
+[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/HrshD1eux/flowgrab-android/stargazers)
 [![Supported Sites](https://img.shields.io/badge/Supported-Sites-9cf.svg?style=flat)](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 [![Telegram Channel](https://img.shields.io/badge/Telegram-FlowGrab-blue?style=flat&logo=telegram)](https://t.me/seal_app)
 [![Matrix Space](https://img.shields.io/badge/Matrix-FlowGrab-Black?style=flat&color=black&logo=matrix)](https://matrix.to/#/#seal-space:matrix.org)
@@ -68,7 +68,7 @@
 alt="Get it on F-Droid"
 height="80">](https://f-droid.org/packages/hrshd1eux.flowgrab/)
 
-你也可以从 [releases](https://github.com/JunkFood02/FlowGrab/releases) 获取最新的 apk
+你也可以从 [releases](https://github.com/HrshD1eux/flowgrab-android/releases) 获取最新的 apk
 
 ## 贡献
 
@@ -78,7 +78,7 @@ height="80">](https://f-droid.org/packages/hrshd1eux.flowgrab/)
 
 [![Translate status](https://hosted.weblate.org/widgets/seal/-/multi-auto.svg)](https://hosted.weblate.org/engage/seal/)
 
-对于错误报告、功能请求或其他改进的想法，请先在 Issue 和 Discussion 中进行搜索（包括已关闭的 Issue）。如果没有出现重复，欢迎 [发起讨论](https://github.com/JunkFood02/FlowGrab/discussions) 或 [提交问题](https://github.com/JunkFood02/FlowGrab/issues/new)。
+对于错误报告、功能请求或其他改进的想法，请先在 Issue 和 Discussion 中进行搜索（包括已关闭的 Issue）。如果没有出现重复，欢迎 [发起讨论](https://github.com/HrshD1eux/flowgrab-android/discussions) 或 [提交问题](https://github.com/HrshD1eux/flowgrab-android/issues/new)。
 
 FlowGrab 被设计为 yt-dlp 的一个简单的 GUI 封装，所以我们不会接受 yt-dlp 不支持的功能请求。
 
@@ -98,4 +98,4 @@ FlowGrab 被设计为 yt-dlp 的一个简单的 GUI 封装，所以我们不会�
 
 ## 许可证
 
-[GNU GPL v3.0](https://github.com/JunkFood02/FlowGrab/blob/main/LICENSE)
+[GNU GPL v3.0](https://github.com/HrshD1eux/flowgrab-android/blob/main/LICENSE)

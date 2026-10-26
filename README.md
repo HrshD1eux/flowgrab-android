@@ -71,12 +71,12 @@ FlowGrab stands on the shoulders of giants. We express our deepest gratitude and
 
 ---
 
-## 📜 License & Usage Terms
+## 📜 License & Copyleft Notice
 
-FlowGrab is distributed under the **GNU General Public License v3.0 (GPLv3)** with the following community terms:
+FlowGrab is free and open-source software distributed under the terms of the **GNU General Public License v3.0 (GPLv3)**.
 
-* ✅ **Do Whatever You Want (Personal & Educational):** You are completely free to study, fork, run, and modify the code.
-* 🏷️ **Proper Credits Required:** Any redistribution, public display, or fork **must give full, visible credit** to both [FlowGrab](https://github.com/HrshD1eux/flowgrab-android) and [Seal](https://github.com/JunkFood02/Seal).
-* 🚫 **Strictly Non-Commercial / No-Sale:** You **CANNOT sell the app**, distribute paid versions, gate features behind subscriptions or paywalls, or inject commercial ad networks. It is 100% free software for the community.
+* 🕊️ **Freedom to Use & Modify:** You are free to run, study, adapt, and share this software.
+* 🏷️ **Attribution Preserved:** Any redistribution, fork, or derivative work must retain all original copyright notices and provide clear attribution to [FlowGrab](https://github.com/HrshD1eux/flowgrab-android) and upstream [Seal](https://github.com/JunkFood02/Seal).
+* 🔓 **Copyleft Guarantee:** All modified versions and derivative works must remain 100% free and open source under the GPLv3 license.
 
-See the full [LICENSE](LICENSE) file for legal details.
+See the full [LICENSE](LICENSE) file for complete terms and conditions.

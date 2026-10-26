@@ -8,16 +8,16 @@ FlowGrab
 </div>
 
 [![F-Droid](https://img.shields.io/f-droid/v/hrshd1eux.flowgrab.svg?logo=F-Droid&color=green&style=flat-square)](https://f-droid.org/en/packages/hrshd1eux.flowgrab)
-[![Releases](https://img.shields.io/github/release/JunkFood02/FlowGrab.svg?logo=github&color=171515&label=stable&style=flat-square)](https://github.com/JunkFood02/FlowGrab/releases/latest)
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=preview&logo=github)](https://github.com/JunkFood02/FlowGrab/releases)
-[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?style=flat-square)](https://github.com/JunkFood02/FlowGrab/releases)
-[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?style=flat-square)](https://github.com/JunkFood02/FlowGrab/stargazers)
+[![Releases](https://img.shields.io/github/release/JunkFood02/FlowGrab.svg?logo=github&color=171515&label=stable&style=flat-square)](https://github.com/HrshD1eux/flowgrab-android/releases/latest)
+[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=preview&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases)
+[![GitHub all releases](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?style=flat-square)](https://github.com/HrshD1eux/flowgrab-android/releases)
+[![GitHub Repo stars](https://img.shields.io/github/stars/JunkFood02/FlowGrab?style=flat-square)](https://github.com/HrshD1eux/flowgrab-android/stargazers)
 [![Supported Sites](https://img.shields.io/badge/Supported-Sites-9cf.svg?style=flat-square)](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 [![Telegram Channel](https://img.shields.io/badge/Telegram-FlowGrab-blue?style=flat-square&logo=telegram)](https://t.me/seal_app)
 [![Matrix Space](https://img.shields.io/badge/Matrix-FlowGrab-Black?style=flat-square&color=black&logo=matrix)](https://matrix.to/#/#seal-space:matrix.org)
 
 <p align="center">
-  <a href="https://github.com/JunkFood02/FlowGrab/blob/main/README.md">English</a>
+  <a href="https://github.com/HrshD1eux/flowgrab-android/blob/main/README.md">English</a>
 &nbsp;&nbsp;| &nbsp;&nbsp;
 فارسی
 </p>
@@ -59,9 +59,9 @@ FlowGrab
 
 برای اکثر دستگاه ها پیشنهاد می شود نسخه **arm64-v8a** را دانلود کنید.
 
--دانلود آخرین نسخه برنامه [GitHub releases](https://github.com/JunkFood02/FlowGrab/releases/latest)
+-دانلود آخرین نسخه برنامه [GitHub releases](https://github.com/HrshD1eux/flowgrab-android/releases/latest)
 
--[نسخه آزمایشی](https://github.com/JunkFood02/FlowGrab/releases/) را جهت تست و کمک به ما در توسعه دانلود کنید
+-[نسخه آزمایشی](https://github.com/HrshD1eux/flowgrab-android/releases/) را جهت تست و کمک به ما در توسعه دانلود کنید
 
 - دانلود آخرین نسخه از F-Droid :
 
@@ -84,7 +84,7 @@ FlowGrab
 
 >**نکته**
 
-جهت ارسال هرگونه گزارش مشکل, سوالات, ایده ها و کمک در توسعه برنامه ابتدا دستورالعمل را به آدرس [CONTRIBUTING.md](https://github.com/JunkFood02/FlowGrab/blob/main/CONTRIBUTING.md) مطالعه کنید
+جهت ارسال هرگونه گزارش مشکل, سوالات, ایده ها و کمک در توسعه برنامه ابتدا دستورالعمل را به آدرس [CONTRIBUTING.md](https://github.com/HrshD1eux/flowgrab-android/blob/main/CONTRIBUTING.md) مطالعه کنید
 
 ## ⭐️تاریخچه امتیاز
 <p align="right">
@@ -109,7 +109,7 @@ FlowGrab
 
 ## 📃 لایسنس
 
-[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/JunkFood02/FlowGrab/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/HrshD1eux/flowgrab-android/blob/main/LICENSE)
 
 <div align="right">
 <table><td>

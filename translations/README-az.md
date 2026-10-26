@@ -7,18 +7,18 @@
 ### Android üçün Video/Səs Yükləyici
 
 <p align="center">
-<a href="https://github.com/JunkFood02/FlowGrab/blob/main/README.md">English</a>
+<a href="https://github.com/HrshD1eux/flowgrab-android/blob/main/README.md">English</a>
 &nbsp;&nbsp;| &nbsp;&nbsp;
 Azərbaycanca
 </p>
 
 
 [![F-Droid](https://img.shields.io/f-droid/v/hrshd1eux.flowgrab?color=b4eb12&label=F-Droid&logo=fdroid&logoColor=1f78d2)](https://f-droid.org/en/packages/hrshd1eux.flowgrab)
-[![GitHub buraxılışı (ən son tarixə görə)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/latest/)
-[![GitHub buraxılışı (ilkin buraxılışlar daxil olmaqla son tarix)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![Dəyişikliklər jurnalın saxla](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/JunkFood02/FlowGrab/blob/main/CHANGELOG.md)
-[![GitHub bütün buraxılışlar](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/JunkFood02/FlowGrab/releases/)
-[![GitHub Depo ulduzları](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/JunkFood02/FlowGrab/stargazers)
+[![GitHub buraxılışı (ən son tarixə görə)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?color=black&label=Stable&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/latest/)
+[![GitHub buraxılışı (ilkin buraxılışlar daxil olmaqla son tarix)](https://img.shields.io/github/v/release/JunkFood02/FlowGrab?include_prereleases&label=Preview&logo=Github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![Dəyişikliklər jurnalın saxla](https://img.shields.io/badge/Changelog-lightgray?style=flat&color=gray&logo=keep-a-changelog)](https://github.com/HrshD1eux/flowgrab-android/blob/main/CHANGELOG.md)
+[![GitHub bütün buraxılışlar](https://img.shields.io/github/downloads/JunkFood02/FlowGrab/total?label=Downloads&logo=github)](https://github.com/HrshD1eux/flowgrab-android/releases/)
+[![GitHub Depo ulduzları](https://img.shields.io/github/stars/JunkFood02/FlowGrab?color=informational&label=Stars)](https://github.com/HrshD1eux/flowgrab-android/stargazers)
 [![Dəstəklənən Saytlar](https://img.shields.io/badge/Supported-Sites-9cf.svg?style=flat)](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 [![Telegram Kanalı](https://img.shields.io/badge/Telegram-FlowGrab-blue?style=flat&logo=telegram)](https://t.me/seal_app)
 [![Matrix Məkanı](https://img.shields.io/badge/Matrix-FlowGrab-Black?style=flat&color=black&logo=matrix)](https://matrix.to/#/#seal-space:matrix.org)
@@ -73,8 +73,8 @@ Azərbaycanca
 
 Əksər cihazlar üçün apk-lərin **arm64-v8a** versiyasın quraşdırmaq tövsiyə olunur
 
-- Ən son stabil versiyanı [GitHub buraxılışlarından](https://github.com/JunkFood02/FlowGrab/releases/latest) yüklə
-  - Yeni xüsusiyyətləri & dəyişiklikləri sınamağımıza kömək etmək üçün [buraxılışdan əvvəl](https://github.com/JunkFood02/FlowGrab/releases/) versiyaların quraşdır
+- Ən son stabil versiyanı [GitHub buraxılışlarından](https://github.com/HrshD1eux/flowgrab-android/releases/latest) yüklə
+  - Yeni xüsusiyyətləri & dəyişiklikləri sınamağımıza kömək etmək üçün [buraxılışdan əvvəl](https://github.com/HrshD1eux/flowgrab-android/releases/) versiyaların quraşdır
     
 - Həmçinin stabil buraxılışlar [F-Droid](https://f-droid.org/packages/hrshd1eux.flowgrab/)-də mövcuddur
  
@@ -103,7 +103,7 @@ Siz [Hosted Weblate](https://hosted.weblate.org/projects/seal/)-də FlowGrab-ı 
 
 >**Qeyd**
 >
->Səhv hesabatları, xüsusiyyət sorğuları, suallar və ya təkmilləşdirmək üçün hər hansı digər ideyalar təqdim etmək üçün əvvəlcə təlimlər və təlimatlar üçün [CONTRIBUTING.md](https://github.com/JunkFood02/FlowGrab/blob/main/CONTRIBUTING.md) bölməsin oxuyun.
+>Səhv hesabatları, xüsusiyyət sorğuları, suallar və ya təkmilləşdirmək üçün hər hansı digər ideyalar təqdim etmək üçün əvvəlcə təlimlər və təlimatlar üçün [CONTRIBUTING.md](https://github.com/HrshD1eux/flowgrab-android/blob/main/CONTRIBUTING.md) bölməsin oxuyun.
 
 ## ⭐️ Ulduz Tarixçəsi
 
@@ -124,7 +124,7 @@ Bəzi UI dizaynları və kodları [Read You](https://github.com/Ashinch/ReadYou)
 
 ## 📃 Lisenziya
 
-[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/JunkFood02/FlowGrab/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/github/license/JunkFood02/FlowGrab?style=for-the-badge)](https://github.com/HrshD1eux/flowgrab-android/blob/main/LICENSE)
 
 >**Xəbərdarlıq**
 >
